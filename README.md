@@ -168,6 +168,12 @@ filter = <string:required>
 
 attrs = <[string]>              # default: (all attributes)
 
+# you'll know that you need it. 
+# TODO: remove this option and handle the connection properly.
+# NOTE: This option is not a part of the stable API.
+fallback_return_code = <bool>   # default: false
+
+
 # ---------------------------
 # Overrides for main ldap config
 uri = <string>                  # default: None
