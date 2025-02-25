@@ -12,6 +12,7 @@ use metrics_exporter_prometheus::PrometheusBuilder;
 use replica::{get_ldap_replica_metrics, ReplicationCommonData};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
+use tokio_util::task::TaskTracker;
 
 #[derive(Default)]
 pub struct DsctlCommonData {
@@ -291,7 +292,9 @@ async fn main() -> Result<()> {
 
     gauge!("internal.scrape_interval_seconds").set(config.scrape_interval_seconds as f64);
 
-    let internal_hooks = tokio::spawn(async move {
+    let tracker = TaskTracker::new();
+
+    tracker.spawn(async move {
         loop {
             counter!("internal.runtime.seconds_active").increment(5_u64);
             describe_counter!(
@@ -307,8 +310,8 @@ async fn main() -> Result<()> {
     });
 
     let config_clone = config.clone();
-    let ldap_monitoring_hook = if config.scrape_flags.ldap_monitoring {
-        tokio::spawn(async move {
+    if config.scrape_flags.ldap_monitoring {
+        tracker.spawn(async move {
             let mut common_data = MetricsCommonData::default();
             loop {
                 if let Err(error) =
@@ -324,14 +327,14 @@ async fn main() -> Result<()> {
             }
         })
     } else {
-        tokio::spawn(async move {
+        tracker.spawn(async move {
             tracing::info!("LDAP cn=monitoring parsing disabled");
         })
     };
 
     let config_clone = config.clone();
-    let gids_info = if config.scrape_flags.gids_info {
-        tokio::spawn(async move {
+    if config.scrape_flags.gids_info {
+        tracker.spawn(async move {
             loop {
                 if let Err(error) = get_gids_metrics(&config_clone.ldap_config).await {
                     tracing::error!("Error: {}", error);
@@ -345,14 +348,14 @@ async fn main() -> Result<()> {
             }
         })
     } else {
-        tokio::spawn(async move {
+        tracker.spawn(async move {
             tracing::info!("GIDs metric parsing disabled");
         })
     };
 
     let config_clone = config.clone();
-    let replica_info = if config.scrape_flags.replication_status {
-        tokio::spawn(async move {
+    if config.scrape_flags.replication_status {
+        tracker.spawn(async move {
             let mut common_data = ReplicationCommonData::default();
             loop {
                 if let Err(error) =
@@ -369,14 +372,14 @@ async fn main() -> Result<()> {
             }
         })
     } else {
-        tokio::spawn(async move {
+        tracker.spawn(async move {
             tracing::info!("Replica metric parsing disabled");
         })
     };
 
     let config_clone = config.clone();
-    let dsctl = if config.scrape_flags.dsctl {
-        tokio::spawn(async move {
+    if config.scrape_flags.dsctl {
+        tracker.spawn(async move {
             let mut common_data = DsctlCommonData::default();
             loop {
                 if let Err(error) = get_dsctl_metrics(&config_clone.dsctl, &mut common_data).await {
@@ -390,13 +393,13 @@ async fn main() -> Result<()> {
             }
         })
     } else {
-        tokio::spawn(async move {
+        tracker.spawn(async move {
             tracing::info!("dsctl metric parsing disabled");
         })
     };
 
     let config_clone = config.clone();
-    let queries = tokio::spawn(async move {
+    tracker.spawn(async move {
         loop {
             if let Err(error) = get_queries_metrics(&config_clone).await {
                 tracing::error!("Error: {}", error);
@@ -409,22 +412,8 @@ async fn main() -> Result<()> {
         }
     });
 
-    let (int, r1, r2, r3, r4, r5) = tokio::join!(
-        internal_hooks,
-        ldap_monitoring_hook,
-        gids_info,
-        replica_info,
-        dsctl,
-        queries
-    );
-
-    // This actually should be unreachable unless some error happens
-    int?;
-    r1?;
-    r2?;
-    r3?;
-    r4?;
-    r5?;
+    tracker.close();
+    tracker.wait().await;
 
     Ok(())
 }

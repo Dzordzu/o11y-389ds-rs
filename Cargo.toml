@@ -19,3 +19,4 @@ members = ["exporter-389ds-rs", "internal", "nagios-389ds-rs", "xtask"]
   serde-aux = "4.6.0"
   tracing-subscriber = "0.3.19"
   sha2 = "0.10.8"
+  tokio-util = { version = "0.7.13", features = ["rt", "tracing"] }
