@@ -1,0 +1,26 @@
+ldap_uri = "ldap://localhost"
+
+expose_port = 9100
+expose_address = "127.0.0.1"
+
+page_size = 999
+scrape_interval_seconds = 5
+
+[scrape_flags]
+gids_info = true
+replication_status = true
+ldap_monitoring = true
+dsctl = true
+
+[bind]
+dn = "cn=Directory Manager"
+# Try to decode it from base64 ;)
+pass = "bm90IHNvIGVhc3kh"
+
+[dsctl]
+instance = "default"
+timeout_seconds = 10
+
+[[query]]
+name = "list-users"
+filter = "(&(objectClass=posixAccount)(objectClass=inetOrgPerson))"

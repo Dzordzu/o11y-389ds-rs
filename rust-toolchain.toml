@@ -1,0 +1,11 @@
+[toolchain]
+components = [
+  "rustfmt",
+  "rust-analyzer",
+  "rustc",
+  "cargo",
+  "rust-std",
+  "clippy",
+]
+channel = "1.84.1"
+targets = ["x86_64-unknown-linux-gnu", "x86_64-unknown-linux-musl"]

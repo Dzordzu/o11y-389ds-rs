@@ -1,0 +1,24 @@
+[package]
+name = "exporter-389ds-rs"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "389ds exporter for prometheus"
+
+[dependencies]
+anyhow = { workspace = true }
+chrono = { workspace = true }
+clap = { workspace = true }
+ldap3 = { workspace = true }
+metrics = { workspace = true }
+metrics-exporter-prometheus = { workspace = true }
+openssl-sys = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+struct-field-names-as-array = { workspace = true }
+tokio = { workspace = true }
+toml = { workspace = true }
+tracing = { workspace = true }
+serde-aux = { workspace = true }
+internal = { path = "../internal" }
+tracing-subscriber = { workspace = true }

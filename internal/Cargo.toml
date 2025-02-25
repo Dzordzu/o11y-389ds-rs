@@ -1,0 +1,14 @@
+[package]
+name = "internal"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde = { workspace = true }
+ldap3 = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }
+chrono = { workspace = true }
+serde-aux = { workspace = true }
+serde_json = { workspace = true }
+sha2 = { workspace = true }

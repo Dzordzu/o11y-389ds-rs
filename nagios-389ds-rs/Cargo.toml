@@ -1,0 +1,15 @@
+[package]
+name = "nagios-389ds-rs"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "nagios checks for 389ds"
+
+[dependencies]
+clap = { workspace = true }
+anyhow = { workspace = true }
+tokio = { workspace = true }
+toml = { workspace = true }
+ldap3 = { workspace = true }
+openssl-sys = { workspace = true }
+internal = { path = "../internal" }
