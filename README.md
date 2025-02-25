@@ -64,6 +64,8 @@ Usage: exporter-389ds-rs [OPTIONS]
 Options:
   -c, --config <CONFIG>
   -P, --page-size <PAGE_SIZE>
+  -C, --skip-cert-verification
+          Disable TLS cert verification
   -a, --expose-address <EXPOSE_ADDRESS>
   -p, --expose-port <EXPOSE_PORT>
   -b, --basedn <BASEDN>
@@ -103,6 +105,7 @@ Commands:
 
 Options:
   -c, --config <CONFIG>
+  -C, --skip-cert-verification  Disable TLS cert verification
   -H, --host <HOST>
   -D, --binddn <BINDDN>
   -w, --bindpass <BINDPASS>
@@ -120,37 +123,38 @@ can be found int the root of the repository. Every key below is ***optional***,
 unless stated otherwise.
 
 ```
-ldap_uri = <string>             # default: ldap://localhost
-default_base = <string>         # default: (auto-detected)
+ldap_uri = <string>                             # default: ldap://localhost
+default_base = <string>                         # default: (auto-detected)
 
-page_size = <int>               # default: 999
-scrape_interval_seconds = <int> # default: 5
-bind = <BIND>                   # default: None
-dsctl = <DSCTL>                 # default: DSCTL::default
+verify_certs = <bool>                           # default: true
+page_size = <int>                               # default: 999
+scrape_interval_seconds = <int>                 # default: 5
+bind = <BIND>                                   # default: None
+dsctl = <DSCTL>                                 # default: DSCTL::default
 
 # ---------------------------
 # Exporter only
-expose_port <int>               # default: 9100
-expose_address = <string>       # default: 0.0.0.0
-scrape_flags = <SCRAPE_FLAGS>   # default: SCRAPE_FLAGS::default
-query = <[QUERY]>               # default: []
+expose_port <int>                               # default: 9100
+expose_address = <string>                       # default: 0.0.0.0
+scrape_flags = <SCRAPE_FLAGS>                   # default: SCRAPE_FLAGS::default
+query = <[QUERY]>                               # default: []
 # ---------------------------
 ```
 
 **\<SCRAPE\_FLAGS> type**
 
 ```
-replication_status = <bool>     # default: true
-ldap_monitoring = <bool>        # default: true
-gids_info = <bool>              # default: false
-dsctl = <bool>                  # default: false
+replication_status = <bool>                     # default: true
+ldap_monitoring = <bool>                        # default: true
+gids_info = <bool>                              # default: false
+dsctl = <bool>                                  # default: false
 ```
 
 **\<DSCTL> type**
 
 ```
-instance = <string>             # default: localhost
-timeout_seconds = <int>         # default: 10
+instance = <string>                             # default: localhost
+timeout_seconds = <int>                         # default: 10
 ```
 
 **\<BIND> type**
@@ -166,16 +170,22 @@ pass = <string:required>
 name = <string:required>
 filter = <string:required>
 
-attrs = <[string]>              # default: (all attributes)
+attrs = <[string]>                              # default: (all attributes)
 
-# you'll know that you need it. 
+
+# ---------------------------
+# you'll know that you need it.
 # TODO: remove this option and handle the connection properly.
 # NOTE: This option is not a part of the stable API.
-fallback_return_code = <bool>   # default: false
+# default: false
+
+fallback_return_code = <bool>                   
+# ---------------------------
 
 
 # ---------------------------
 # Overrides for main ldap config
+verify_certs = <bool>           # default: None
 uri = <string>                  # default: None
 page_size = <int>               # default: None
 default_base = <string>         # default: None
@@ -212,7 +222,7 @@ cargo xtask setup-repo
 ### Commiting
 
 * Pre commit hooks check for different formatting issues and passwords in the
-    repository.
+  repository.
 * In order to fix formatting issues run `cargo xtask fmt`.
 
 ## Similar projects

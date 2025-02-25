@@ -12,7 +12,8 @@ use metrics_exporter_prometheus::PrometheusBuilder;
 use replica::{get_ldap_replica_metrics, ReplicationCommonData};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
-use tokio_util::task::TaskTracker;
+use tokio::select;
+use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 #[derive(Default)]
 pub struct DsctlCommonData {
@@ -294,6 +295,22 @@ async fn main() -> Result<()> {
 
     let tracker = TaskTracker::new();
 
+    let cancel_token_orig = CancellationToken::new();
+
+    let cancel_token = cancel_token_orig.clone();
+    tracker.spawn(async move {
+        if let Err(e) = tokio::signal::ctrl_c().await {
+            tracing::error!("Failed to register ctrl-c handler: {}", e);
+            tracing::warn!("Program will work. But killing it can be hard");
+            return;
+        };
+        tracing::info!("Received ctrl-c");
+
+        tracing::info!("Shutting down");
+        cancel_token.cancel();
+    });
+
+    let cancel_token = cancel_token_orig.clone();
     tracker.spawn(async move {
         loop {
             counter!("internal.runtime.seconds_active").increment(5_u64);
@@ -302,13 +319,20 @@ async fn main() -> Result<()> {
                 "How long o11y-389ds-rs daemon has been already running"
             );
 
-            tokio::time::sleep(tokio::time::Duration::from_secs(
-                config.scrape_interval_seconds,
-            ))
-            .await;
+            select! {
+                _ = tokio::time::sleep(tokio::time::Duration::from_secs(
+                    config.scrape_interval_seconds,
+                )) => {
+
+                },
+                _ = cancel_token.cancelled() => {
+                    break
+                }
+            }
         }
     });
 
+    let cancel_token = cancel_token_orig.clone();
     let config_clone = config.clone();
     if config.scrape_flags.ldap_monitoring {
         tracker.spawn(async move {
@@ -320,10 +344,16 @@ async fn main() -> Result<()> {
                     tracing::error!("Error: {}", error);
                 }
 
-                tokio::time::sleep(tokio::time::Duration::from_secs(
-                    config.scrape_interval_seconds,
-                ))
-                .await;
+                select! {
+                    _ = tokio::time::sleep(tokio::time::Duration::from_secs(
+                        config.scrape_interval_seconds,
+                    )) => {
+
+                    },
+                    _ = cancel_token.cancelled() => {
+                        break
+                    }
+                }
             }
         })
     } else {
@@ -332,19 +362,25 @@ async fn main() -> Result<()> {
         })
     };
 
+    let cancel_token = cancel_token_orig.clone();
     let config_clone = config.clone();
     if config.scrape_flags.gids_info {
         tracker.spawn(async move {
             loop {
                 if let Err(error) = get_gids_metrics(&config_clone.ldap_config).await {
                     tracing::error!("Error: {}", error);
-                    eprintln!("{error:?}");
                 }
 
-                tokio::time::sleep(tokio::time::Duration::from_secs(
-                    config.scrape_interval_seconds,
-                ))
-                .await;
+                select! {
+                    _ = tokio::time::sleep(tokio::time::Duration::from_secs(
+                        config.scrape_interval_seconds,
+                    )) => {
+
+                    },
+                    _ = cancel_token.cancelled() => {
+                        break
+                    }
+                }
             }
         })
     } else {
@@ -353,6 +389,7 @@ async fn main() -> Result<()> {
         })
     };
 
+    let cancel_token = cancel_token_orig.clone();
     let config_clone = config.clone();
     if config.scrape_flags.replication_status {
         tracker.spawn(async move {
@@ -362,13 +399,18 @@ async fn main() -> Result<()> {
                     get_ldap_replica_metrics(&config_clone.ldap_config, &mut common_data).await
                 {
                     tracing::error!("Error: {}", error);
-                    eprintln!("{error:?}");
                 }
 
-                tokio::time::sleep(tokio::time::Duration::from_secs(
-                    config_clone.scrape_interval_seconds,
-                ))
-                .await;
+                select! {
+                    _ = tokio::time::sleep(tokio::time::Duration::from_secs(
+                        config.scrape_interval_seconds,
+                    )) => {
+
+                    },
+                    _ = cancel_token.cancelled() => {
+                        break
+                    }
+                }
             }
         })
     } else {
@@ -377,6 +419,7 @@ async fn main() -> Result<()> {
         })
     };
 
+    let cancel_token = cancel_token_orig.clone();
     let config_clone = config.clone();
     if config.scrape_flags.dsctl {
         tracker.spawn(async move {
@@ -386,10 +429,16 @@ async fn main() -> Result<()> {
                     tracing::error!("Error: {}", error);
                 }
 
-                tokio::time::sleep(tokio::time::Duration::from_secs(
-                    config_clone.scrape_interval_seconds,
-                ))
-                .await;
+                select! {
+                    _ = tokio::time::sleep(tokio::time::Duration::from_secs(
+                        config.scrape_interval_seconds,
+                    )) => {
+
+                    },
+                    _ = cancel_token.cancelled() => {
+                        break
+                    }
+                }
             }
         })
     } else {
@@ -398,6 +447,7 @@ async fn main() -> Result<()> {
         })
     };
 
+    let cancel_token = cancel_token_orig.clone();
     let config_clone = config.clone();
     tracker.spawn(async move {
         loop {
@@ -405,10 +455,16 @@ async fn main() -> Result<()> {
                 tracing::error!("Error: {}", error);
             }
 
-            tokio::time::sleep(tokio::time::Duration::from_secs(
-                config_clone.scrape_interval_seconds,
-            ))
-            .await;
+            select! {
+                _ = tokio::time::sleep(tokio::time::Duration::from_secs(
+                    config.scrape_interval_seconds,
+                )) => {
+
+                },
+                _ = cancel_token.cancelled() => {
+                    break
+                }
+            }
         }
     });
 

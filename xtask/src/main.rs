@@ -131,8 +131,7 @@ fn exporter_389ds_rpn() -> Result<()> {
     let create_user = "useradd -r exporter-389ds-rs; exit 0";
     let daemon_reload = "systemctl daemon-reload";
     let disable_unit = "systemctl disable exporter-389ds-rs.service";
-    let delete_user_and_disable =
-        "userdel exporter-389ds-rs; systemctl disable exporter-389ds-rs.service";
+    let delete_user_and_disable = "systemctl daemon-reload; userdel exporter-389ds-rs;";
 
     let pkg = common_rpm(&exporter_pkg)?
         .pre_install_script(create_user)
