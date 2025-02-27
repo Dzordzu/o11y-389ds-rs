@@ -16,3 +16,4 @@ xshell = "0.2.7"
 rustix = { version = "0.38.44", features = ["system"] }
 tar = "0.4.44"
 flate2 = "1.1.0"
+regex = "1.11.1"
