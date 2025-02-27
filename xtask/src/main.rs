@@ -7,6 +7,7 @@ use clap::{Parser, Subcommand};
 use xshell::{cmd, Shell};
 
 const MUSL_DIR: &str = "x86_64-unknown-linux-musl";
+const MISC_DIR: &str = "misc";
 
 #[derive(Subcommand, Clone, Debug)]
 pub enum CliCommand {
@@ -126,11 +127,20 @@ fn nagios_389ds_rpm() -> Result<()> {
     let nagios_pkg = read_package("nagios-389ds-rs")?;
     let binary_location = binary_location(&nagios_pkg)?;
 
-    let pkg = common_rpm(&nagios_pkg)?.with_file(
-        binary_location,
-        rpm::FileOptions::new("/usr/lib64/nagios/plugins/check_389ds_rs")
-            .mode(rpm::FileMode::regular(0o755)),
-    )?;
+    let misc_path = get_project_root()?.join(MISC_DIR);
+
+    let pkg = common_rpm(&nagios_pkg)?
+        .with_file(
+            binary_location,
+            rpm::FileOptions::new("/usr/lib64/nagios/plugins/check_389ds_rs")
+                .mode(rpm::FileMode::regular(0o755)),
+        )?
+        .with_file(
+            misc_path.join("nagios.sudoers"),
+            rpm::FileOptions::new("/etc/sudoers.d/nagios-389ds-rs")
+                .mode(rpm::FileMode::regular(0o440))
+                .user("root"),
+        )?;
 
     common_rpm_build(pkg, &nagios_pkg.name)?;
 
@@ -147,6 +157,8 @@ fn exporter_389ds_rpn() -> Result<()> {
     let disable_unit = "systemctl disable exporter-389ds-rs.service";
     let delete_user_and_disable = "systemctl daemon-reload; userdel exporter-389ds-rs;";
 
+    let misc_path = root_dir.join(MISC_DIR);
+
     let pkg = common_rpm(&exporter_pkg)?
         .pre_install_script(create_user)
         .post_uninstall_script(delete_user_and_disable)
@@ -157,12 +169,18 @@ fn exporter_389ds_rpn() -> Result<()> {
             rpm::FileOptions::new("/usr/bin/exporter-389ds-rs").mode(rpm::FileMode::regular(0o755)),
         )?
         .with_file(
-            root_dir.join("exporter-389ds-rs.service"),
+            misc_path.join("exporter-389ds-rs.service"),
             rpm::FileOptions::new("/etc/systemd/system/exporter-389ds-rs.service")
                 .mode(rpm::FileMode::regular(0o644)),
         )?
         .with_file(
-            root_dir.join("exporter-389ds-rs.minimal.toml"),
+            misc_path.join("exporter.sudoers"),
+            rpm::FileOptions::new("/etc/sudoers.d/exporter-389ds-rs")
+                .mode(rpm::FileMode::regular(0o440))
+                .user("root"),
+        )?
+        .with_file(
+            misc_path.join("exporter-389ds-rs.minimal.toml"),
             rpm::FileOptions::new("/etc/o11y-389ds-rs/default.toml")
                 .mode(rpm::FileMode::regular(0o600))
                 .user("exporter-389ds-rs"),

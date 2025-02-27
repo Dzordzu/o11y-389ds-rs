@@ -72,13 +72,15 @@ impl CommandConfig {
     }
 
     pub async fn healthcheck(&self) -> Result<Vec<HealthcheckEntry>> {
-        let mut cmd = Command::new("dsctl");
-        cmd.args(["--json", &self.instance_name, "healthcheck"]);
+        let mut cmd = Command::new("sudo");
+        cmd.args(["dsctl", "--json", &self.instance_name, "healthcheck"]);
 
         let result = self.execute_cmd(&mut cmd).await?;
 
         if !result.status.success() {
-            return Err(anyhow!("dsctl healthcheck failed"));
+            let error = std::str::from_utf8(&result.stderr)
+                .unwrap_or("Undefined error. That is really bad");
+            return Err(anyhow!("dsctl healthcheck failed: {}", error));
         }
 
         Ok(serde_json::from_slice(&result.stdout)?)

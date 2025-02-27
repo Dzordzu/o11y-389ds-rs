@@ -1,0 +1,5 @@
+## Access for nagios/icinga2 user to dsctl command
+nagios ALL=(root) NOPASSWD: /usr/sbin/dsctl
+icinga ALL=(root) NOPASSWD: /usr/sbin/dsctl
+
+# vim: ft=sudoers
