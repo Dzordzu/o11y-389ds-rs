@@ -182,6 +182,7 @@ fn exporter_389ds_rpn() -> Result<()> {
         .with_file(
             misc_path.join("exporter-389ds-rs.minimal.toml"),
             rpm::FileOptions::new("/etc/o11y-389ds-rs/default.toml")
+                .is_config_noreplace()
                 .mode(rpm::FileMode::regular(0o600))
                 .user("exporter-389ds-rs"),
         )?;
