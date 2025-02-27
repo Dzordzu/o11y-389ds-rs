@@ -1,4 +1,4 @@
-# I had a dream
+# I have a dream
 
 - [ ] OTEL sender
 - [ ] audit log parsing
@@ -11,3 +11,4 @@
 - [ ] tests
 - [ ] docker image
 - [ ] manpages and autocompletion
+- [ ] memberof integrity metrics and checks

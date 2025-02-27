@@ -6,13 +6,12 @@ dsctl = true
 
 [dsctl]
 instance = "default"
+timeout_seconds = 10
 
 [[query]]
 name = "list-posix-users"
 filter = "(objectClass=posixAccount)"
-timeout_seconds = 10
 
 [[query]]
 name = "list-posix-groups"
 filter = "(objectClass=posixGroup)"
-timeout_seconds = 10
