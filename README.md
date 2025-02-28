@@ -10,6 +10,7 @@
     * [Binaries and packages](#binaries-and-packages)
 * [Observability](#observability)
     * [Supported features](#supported-features)
+    * [Grafana dashboards](#grafana-dashboards)
     * [Exporter usage](#exporter-usage)
     * [Nagios plugin usage](#nagios-plugin-usage)
     * [Configuration](#configuration)
@@ -55,6 +56,11 @@ This repository contains the following projects
 * `dsctl` command based metrics and checks
 * custom command metrics and checks
 * integrity checks of custom commands
+
+### Grafana dashboards
+
+In addition to the binaries this repository also provides grafana dashboards. You can see them
+inside the [grafana-389ds-rs](./grafana-389ds-rs) directory.
 
 ### Exporter usage
 
