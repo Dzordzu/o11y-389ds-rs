@@ -11,6 +11,7 @@ use metrics::{counter, describe_counter, gauge};
 use metrics_exporter_prometheus::PrometheusBuilder;
 use replica::{get_ldap_replica_metrics, ReplicationCommonData};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use std::path::PathBuf;
 use tokio::select;
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
@@ -18,7 +19,7 @@ use tokio_util::{sync::CancellationToken, task::TaskTracker};
 #[derive(Default)]
 pub struct DsctlCommonData {
     /// DSLE of the all known healthchecks
-    pub healthchecks: Vec<String>,
+    pub healthchecks: HashSet<internal::cli::HealthcheckEntry>,
 }
 
 async fn get_dsctl_metrics(
@@ -34,15 +35,17 @@ async fn get_dsctl_metrics(
         .iter()
         .map(|x| x.dsle.clone())
         .collect::<Vec<String>>();
-    for name in common_data
+
+    for outdated_check in common_data
         .healthchecks
         .iter()
-        .filter(|check| healthcheck_names.contains(check))
+        .filter(|check| !healthcheck_names.contains(&check.dsle))
     {
         let g = gauge!(
             "dsctl.healthcheck.error",
             "instance" => cmd_cfg.instance_name.clone(),
-            "dsle" => name.clone()
+            "severity" => outdated_check.severity.to_string(),
+            "dsle" => outdated_check.dsle.clone()
         );
         g.set(0_f64);
     }
@@ -52,9 +55,12 @@ async fn get_dsctl_metrics(
             "dsctl.healthcheck.error",
             "instance" => cmd_cfg.instance_name.clone(),
             "severity" => healthcheck.severity.to_string(),
-            "dsle" => healthcheck.dsle
+            "dsle" => healthcheck.dsle.clone()
         );
         g.set(1_f64);
+
+        // Insert to the common data
+        common_data.healthchecks.insert(healthcheck);
     }
 
     Ok(())
