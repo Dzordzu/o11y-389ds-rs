@@ -59,11 +59,12 @@ This repository contains the following projects
 
 ### Grafana dashboards
 
-In addition to the binaries this repository also provides grafana dashboards. You can see them
-inside the [grafana-389ds-rs](./grafana-389ds-rs) directory.
+In addition to the binaries this repository also provides grafana dashboards.
+You can see them inside the [grafana-389ds-rs](./grafana-389ds-rs) directory.
+
+![Exporter dashboard](./grafana-389ds-rs/389ds-exporter.png)
 
 ### Exporter usage
-
 ```
 Usage: exporter-389ds-rs [OPTIONS]
 
