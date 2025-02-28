@@ -1,6 +1,5 @@
 use anyhow::{anyhow, Result};
 use serde::{Deserialize, Serialize};
-use serde_aux::prelude::deserialize_struct_case_insensitive;
 use std::time::Duration;
 use tokio::process::Command;
 use tokio::time::timeout;
@@ -30,8 +29,11 @@ impl Default for CommandConfig {
 
 #[derive(Debug, Deserialize, Clone, PartialEq, Eq, Copy, std::hash::Hash)]
 pub enum Severity {
+    #[serde(alias = "High", alias = "high", alias = "HIGH")]
     HIGH = 1000,
+    #[serde(alias = "Medium", alias = "medium", alias = "MEDIUM")]
     MEDIUM = 100,
+    #[serde(alias = "Low", alias = "low", alias = "LOW")]
     LOW = 0,
 }
 
@@ -49,7 +51,6 @@ impl std::fmt::Display for Severity {
 #[derive(Debug, Deserialize, Clone, PartialEq, Eq, std::hash::Hash)]
 pub struct HealthcheckEntry {
     pub dsle: String,
-    #[serde(deserialize_with = "deserialize_struct_case_insensitive")]
     pub severity: Severity,
     pub items: Vec<String>,
     pub detail: String,
