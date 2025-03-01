@@ -326,10 +326,6 @@ pub struct CustomQueryTime {
     #[arg(short = 'f', long, required = true)]
     pub filter: String,
 
-    /// Fallback for uncleanly closed connections. Use it for B1 errors
-    #[arg(long, default_value_t = false)]
-    pub fallback_return_code: bool,
-
     #[arg(short = 'w', long)]
     pub warn: Option<u64>,
 
@@ -365,10 +361,6 @@ pub struct CustomQueryIntegrity {
     /// Check integrity using number of ldap bytes in the returned attributes values
     #[arg(short = 'B', long, default_value_t = false)]
     pub bytes_size_integrity: bool,
-
-    /// Fallback for uncleanly closed connections. Use it for B1 errors
-    #[arg(long, default_value_t = false)]
-    pub fallback_return_code: bool,
 }
 
 #[derive(Subcommand, Clone, Debug)]
@@ -1124,13 +1116,11 @@ pub async fn command_select(config: LdapConfig, args: Cli, result: &mut Nagios) 
             }
         }
         CheckVariant::CustomQueryTime(cqt_config) => {
-            let mut cq = internal::query::CustomQuery::new(
+            let cq = internal::query::CustomQuery::new(
                 "query".to_string(),
                 cqt_config.filter.clone(),
                 config,
             );
-
-            cq.fallback_return_code = cqt_config.fallback_return_code;
 
             let metrics = cq.get_metrics().await?;
 
@@ -1166,7 +1156,6 @@ pub async fn command_select(config: LdapConfig, args: Cli, result: &mut Nagios) 
                     config.clone(),
                 );
                 custom_query.attrs = cqi_config.attributes.clone();
-                custom_query.fallback_return_code = cqi_config.fallback_return_code;
                 let metrics = custom_query.get_metrics().await?;
 
                 (
@@ -1242,7 +1231,6 @@ pub async fn command_select(config: LdapConfig, args: Cli, result: &mut Nagios) 
                 cqi_config.filter.clone(),
                 config.clone(),
             );
-            custom_query.fallback_return_code = cqi_config.fallback_return_code;
             custom_query.attrs = cqi_config.attributes.clone();
             let metrics = custom_query.get_metrics().await?;
 

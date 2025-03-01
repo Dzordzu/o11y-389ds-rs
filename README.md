@@ -1,5 +1,10 @@
 # o11y-389ds-rs
 
+![Exporter 389ds version](https://img.shields.io/github/v/tag/dzordzu/o11y-389ds-rs?filter=exporter*\&label=version)
+![Nagios 389ds version](https://img.shields.io/github/v/tag/dzordzu/o11y-389ds-rs?filter=nagios*\&label=version)
+![GitHub last commit (branch)](https://img.shields.io/github/last-commit/Dzordzu/o11y-389ds-rs/master)
+![GitHub Release Date](https://img.shields.io/github/release-date/dzordzu/o11y-389ds-rs)
+
 **Observability for 389ds (rust version)**
 
 <!-- vim-markdown-toc GFM -->
@@ -65,6 +70,7 @@ You can see them inside the [grafana-389ds-rs](./grafana-389ds-rs) directory.
 ![Exporter dashboard](./grafana-389ds-rs/389ds-exporter.png)
 
 ### Exporter usage
+
 ```
 Usage: exporter-389ds-rs [OPTIONS]
 

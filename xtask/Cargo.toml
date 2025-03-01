@@ -11,6 +11,7 @@ clap = { workspace = true }
 serde_json = { workspace = true }
 toml = { workspace = true }
 chrono = { workspace = true }
+sha2 = { workspace = true }
 rpm = "0.16.0"
 xshell = "0.2.7"
 rustix = { version = "0.38.44", features = ["system"] }

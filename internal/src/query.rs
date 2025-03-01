@@ -1,7 +1,7 @@
 use sha2::{Digest, Sha256};
 use std::time::Instant;
 
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use ldap3::{
     adapters::{Adapter, EntriesOnly, PagedResults},
     Ldap, Scope, SearchEntry,
@@ -14,10 +14,6 @@ use crate::Bind;
 pub struct CustomQuery {
     pub name: String,
     pub filter: String,
-
-    /// Use fallback return code in case of uncleanly closed connection
-    #[serde(default)]
-    pub fallback_return_code: bool,
 
     #[serde(default)]
     pub attrs: Vec<String>,
@@ -60,7 +56,6 @@ impl CustomQuery {
             page_size: None,
             default_base: None,
             verify_certs: None,
-            fallback_return_code: false,
             ldap_config,
         }
     }
@@ -110,13 +105,10 @@ impl CustomQuery {
 
         let mut checksums: Vec<(String, serde_json::Value)> = Vec::new();
 
-        let mut ldap_code = None;
         let mut bytes = 0_u64;
 
         let start = Instant::now();
         while let Some(entry) = search.next().await? {
-            ldap_code = search.res.as_ref().map(|x| x.rc);
-
             let entry = SearchEntry::construct(entry);
 
             bytes += entry.attrs.iter().fold(0, |acc, x| acc + x.1.len()) as u64;
@@ -139,8 +131,9 @@ impl CustomQuery {
         }
         let query_time = start.elapsed();
 
+        let ldap_code = search.finish().await.rc;
+
         checksums.sort_by_key(|x| x.0.clone());
-        let sha256_checksum = format!("{:#?}", checksums);
 
         let mut hasher = Sha256::new();
         hasher.update(
@@ -148,20 +141,13 @@ impl CustomQuery {
                 .into_iter()
                 .fold(String::new(), |acc, x| format!("{acc}{}", x.1)),
         );
-
-        let ldap_code = if ldap_code.is_none() && self.fallback_return_code {
-            Some(0)
-        } else {
-            ldap_code
-        };
+        let sha256_checksum = format!("{:x}", hasher.finalize());
 
         Ok(Metrics {
             object_count,
             attrs_count,
             query_time,
-            ldap_code: ldap_code.ok_or(anyhow!(
-                "No ldap code. Use fallback_return_code to fix this"
-            ))?,
+            ldap_code,
             sha256_checksum,
             bytes,
         })

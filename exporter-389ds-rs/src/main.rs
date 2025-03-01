@@ -7,7 +7,7 @@ use crate::monitor::{get_ldap_metrics, MetricsCommonData};
 use anyhow::Result;
 use clap::{ArgGroup, Parser};
 use internal::{cli::CommandConfig, query::CustomQuery, Bind, LdapConfig};
-use metrics::{counter, describe_counter, gauge};
+use metrics::{counter, describe_counter, describe_gauge, gauge};
 use metrics_exporter_prometheus::PrometheusBuilder;
 use replica::{get_ldap_replica_metrics, ReplicationCommonData};
 use serde::{Deserialize, Serialize};
@@ -292,15 +292,14 @@ async fn main() -> Result<()> {
         }
     }
 
-    let builder = PrometheusBuilder::new().with_http_listener(
-        format!("{}:{}", config.expose_address, config.expose_port).parse::<SocketAddr>()?,
-    );
+    let builder = PrometheusBuilder::new()
+        .with_http_listener(
+            format!("{}:{}", config.expose_address, config.expose_port).parse::<SocketAddr>()?,
+        )
+        .add_global_label("ldap_uri", config.ldap_config.uri.clone());
     builder.install()?;
 
-    gauge!("internal.scrape_interval_seconds").set(config.scrape_interval_seconds as f64);
-
     let tracker = TaskTracker::new();
-
     let cancel_token_orig = CancellationToken::new();
 
     let cancel_token = cancel_token_orig.clone();
@@ -325,6 +324,14 @@ async fn main() -> Result<()> {
                 "How long o11y-389ds-rs daemon has been already running"
             );
 
+            gauge!("internal.scrape_interval_seconds").set(config.scrape_interval_seconds as f64);
+            gauge!(
+                "internal.exporter_info",
+                "version" => env!("CARGO_PKG_VERSION"),
+                "name" => env!("CARGO_PKG_NAME")
+            )
+            .set(1);
+
             select! {
                 _ = tokio::time::sleep(tokio::time::Duration::from_secs(
                     config.scrape_interval_seconds,
@@ -344,10 +351,15 @@ async fn main() -> Result<()> {
         tracker.spawn(async move {
             let mut common_data = MetricsCommonData::default();
             loop {
+                let health_gauge = gauge!("internal.health.ldap_monitoring",);
+                describe_gauge!("internal.health.ldap_monitoring", "LDAP cn=monitor scraper status");
                 if let Err(error) =
                     get_ldap_metrics(&config_clone.ldap_config, &mut common_data).await
                 {
                     tracing::error!("Error: {}", error);
+                    health_gauge.set(0);
+                } else {
+                    health_gauge.set(1);
                 }
 
                 select! {
@@ -373,8 +385,14 @@ async fn main() -> Result<()> {
     if config.scrape_flags.gids_info {
         tracker.spawn(async move {
             loop {
+                let health_gauge = gauge!("internal.health.gids",);
+                describe_gauge!("internal.health.gids", "GIDs scraper status");
+
                 if let Err(error) = get_gids_metrics(&config_clone.ldap_config).await {
                     tracing::error!("Error: {}", error);
+                    health_gauge.set(0);
+                } else {
+                    health_gauge.set(1);
                 }
 
                 select! {
@@ -400,11 +418,17 @@ async fn main() -> Result<()> {
     if config.scrape_flags.replication_status {
         tracker.spawn(async move {
             let mut common_data = ReplicationCommonData::default();
+            let health_gauge = gauge!("internal.health.replication",);
+            describe_gauge!("internal.health.replication", "Replica scraper status");
+
             loop {
                 if let Err(error) =
                     get_ldap_replica_metrics(&config_clone.ldap_config, &mut common_data).await
                 {
                     tracing::error!("Error: {}", error);
+                    health_gauge.set(0);
+                } else {
+                    health_gauge.set(1);
                 }
 
                 select! {
@@ -430,9 +454,14 @@ async fn main() -> Result<()> {
     if config.scrape_flags.dsctl {
         tracker.spawn(async move {
             let mut common_data = DsctlCommonData::default();
+            let health_gauge = gauge!("internal.health.dsctl",);
+            describe_gauge!("internal.health.dsctl", "cli scraper status");
             loop {
                 if let Err(error) = get_dsctl_metrics(&config_clone.dsctl, &mut common_data).await {
                     tracing::error!("Error: {}", error);
+                    health_gauge.set(0);
+                } else {
+                    health_gauge.set(1);
                 }
 
                 select! {
@@ -457,8 +486,14 @@ async fn main() -> Result<()> {
     let config_clone = config.clone();
     tracker.spawn(async move {
         loop {
+            let health_gauge = gauge!("internal.health.queries",);
+            describe_gauge!("internal.health.queries", "queries scraper status");
+
             if let Err(error) = get_queries_metrics(&config_clone).await {
                 tracing::error!("Error: {}", error);
+                health_gauge.set(0);
+            } else {
+                health_gauge.set(1);
             }
 
             select! {

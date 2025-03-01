@@ -1,3 +1,4 @@
+use sha2::{Digest, Sha256};
 use std::{env, ffi::OsString, fs::read_dir, path::PathBuf};
 
 use chrono::DateTime;
@@ -152,18 +153,44 @@ fn exporter_389ds_rpn() -> Result<()> {
     let binary_location = binary_location(&exporter_pkg)?;
     let root_dir = get_project_root()?;
 
-    let create_user = "useradd -r exporter-389ds-rs; exit 0";
-    let daemon_reload = "systemctl daemon-reload";
-    let disable_unit = "systemctl disable exporter-389ds-rs.service";
-    let delete_user_and_disable = "systemctl daemon-reload; userdel exporter-389ds-rs;";
+    const PRE_INSTAL_SCRIPT: &str = r#"
+        if [ -z "$(getent passwd | grep exporter-389ds-rs)" ]; then 
+            useradd -r exporter-389ds-rs; 
+        fi
+    "#;
+
+    const POST_INSTALL_SCRIPT: &str = r#"
+        systemctl daemon-reload; 
+    "#;
+
+    const PRE_UNINSTALL_SCRIPT: &str = r#"
+        IS_UPGRADED="$1"
+        case "$IS_UPGRADED" in
+           0) # This is a yum remove.
+              if [ -n "$(getent passwd | grep exporter-389ds-rs)" ]; then 
+                  systemctl disable exporter-389ds-rs.service;
+                  systemctl stop exporter-389ds-rs.service;
+                  userdel exporter-389ds-rs;
+              fi
+           ;;
+           1) # This is a yum upgrade.
+              systemctl is-active --quiet exporter-389ds-rs && systemctl restart exporter-389ds-rs;
+              exit 0;
+           ;;
+         esac
+    "#;
+
+    const POST_UNINSTALL_SCRIPT: &str = r#"
+        systemctl daemon-reload;
+    "#;
 
     let misc_path = root_dir.join(MISC_DIR);
 
     let pkg = common_rpm(&exporter_pkg)?
-        .pre_install_script(create_user)
-        .post_uninstall_script(delete_user_and_disable)
-        .post_install_script(daemon_reload)
-        .pre_uninstall_script(disable_unit)
+        .pre_install_script(PRE_INSTAL_SCRIPT)
+        .post_install_script(POST_INSTALL_SCRIPT)
+        .pre_uninstall_script(PRE_UNINSTALL_SCRIPT)
+        .post_uninstall_script(POST_UNINSTALL_SCRIPT)
         .with_file(
             binary_location,
             rpm::FileOptions::new("/usr/bin/exporter-389ds-rs").mode(rpm::FileMode::regular(0o755)),
@@ -195,6 +222,13 @@ fn exporter_389ds_rpn() -> Result<()> {
 fn copy_binaries(binaries: &[&str]) -> Result<()> {
     for binary_name in binaries {
         Binary::from_project_version(binary_name)?.copy_to_dist()?;
+    }
+    Ok(())
+}
+
+fn generate_checksums(binaries: &[&str]) -> Result<()> {
+    for binary_name in binaries {
+        Binary::from_project_version(binary_name)?.save_checksum()?;
     }
     Ok(())
 }
@@ -284,6 +318,60 @@ impl Binary {
         let enc = flate2::write::GzEncoder::new(&dest_file, flate2::Compression::default());
         let mut builder = tar::Builder::new(enc);
         builder.append_path_with_name(&src, &self.name)?;
+
+        Ok(())
+    }
+
+    pub fn checksum(&self) -> Result<Vec<(String, PathBuf)>> {
+        let root = get_project_root()?;
+        let binary_filepath = root
+            .join("target")
+            .join(MUSL_DIR)
+            .join("release")
+            .join(&self.name);
+
+        let binary_content = std::fs::read(&binary_filepath)?;
+
+        let mut hasher = Sha256::new();
+        hasher.update(&binary_content);
+        let binary_checksum = format!("{:x}", hasher.finalize());
+
+        let package_filepath = root
+            .join("target")
+            .join("dist")
+            .join(format!("{}.{}.rpm", self.versioned_binary(), std::env::consts::ARCH, ));
+
+        let package_content = std::fs::read(&package_filepath)?;
+
+        let mut hasher = Sha256::new();
+        hasher.update(&package_content);
+        let package_checksum = format!("{:x}", hasher.finalize());
+
+        let result = vec![
+            (binary_checksum, binary_filepath),
+            (package_checksum, package_filepath),
+        ];
+
+        Ok(result)
+    }
+
+    pub fn save_checksum(&self) -> Result<()> {
+        let root = get_project_root()?;
+        let filepath = root
+            .join("target")
+            .join("dist")
+            .join(format!("{}.sha256", self.versioned_binary()));
+
+        let file_contents = self.checksum()?.into_iter().fold(String::new(), |acc, x| {
+            format!(
+                "{} {} {}\n",
+                acc,
+                x.0,
+                x.1.file_name().unwrap().to_str().unwrap()
+            )
+        });
+
+        std::fs::write(&filepath, file_contents)?;
 
         Ok(())
     }
@@ -435,6 +523,7 @@ fn main() -> Result<()> {
             println!("Finished packaging exporter");
             copy_binaries(BINARIES)?;
             println!("Copied binaries");
+            generate_checksums(BINARIES)?;
         }
         CliCommand::SetupRepo => {
             let root = get_project_root()?;
