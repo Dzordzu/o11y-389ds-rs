@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## grafana (2025-03-03)
+
+* Added ldap_uri filter
+
 ## grafana (2025-03-01)
 
 * Added more comments to the existing dashboards
