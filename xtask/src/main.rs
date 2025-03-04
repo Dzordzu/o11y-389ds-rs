@@ -336,10 +336,11 @@ impl Binary {
         hasher.update(&binary_content);
         let binary_checksum = format!("{:x}", hasher.finalize());
 
-        let package_filepath = root
-            .join("target")
-            .join("dist")
-            .join(format!("{}.{}.rpm", self.versioned_binary(), std::env::consts::ARCH, ));
+        let package_filepath = root.join("target").join("dist").join(format!(
+            "{}.{}.rpm",
+            self.versioned_binary(),
+            std::env::consts::ARCH,
+        ));
 
         let package_content = std::fs::read(&package_filepath)?;
 

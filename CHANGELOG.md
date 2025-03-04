@@ -1,8 +1,13 @@
 # CHANGELOG
 
+## exporter-389ds-rs-0.1.6 (2025-03-04)
+
+* Fixed issue with exporter timer (always counting 5s, regardless of the
+  interval)
+
 ## grafana (2025-03-03)
 
-* Added ldap_uri filter
+* Added ldap\_uri filter
 
 ## grafana (2025-03-01)
 

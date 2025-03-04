@@ -1,7 +1,7 @@
 pub mod monitor;
 pub mod replica;
 
-use std::net::SocketAddr;
+use std::{net::SocketAddr, time::Instant};
 
 use crate::monitor::{get_ldap_metrics, MetricsCommonData};
 use anyhow::Result;
@@ -299,6 +299,8 @@ async fn main() -> Result<()> {
         .add_global_label("ldap_uri", config.ldap_config.uri.clone());
     builder.install()?;
 
+    let program_start_timestamp = Instant::now();
+
     let tracker = TaskTracker::new();
     let cancel_token_orig = CancellationToken::new();
 
@@ -318,7 +320,9 @@ async fn main() -> Result<()> {
     let cancel_token = cancel_token_orig.clone();
     tracker.spawn(async move {
         loop {
-            counter!("internal.runtime.seconds_active").increment(5_u64);
+            counter!("internal.runtime.seconds_active")
+                .absolute(program_start_timestamp.elapsed().as_secs());
+
             describe_counter!(
                 "internal.runtime.seconds_active",
                 "How long o11y-389ds-rs daemon has been already running"
@@ -352,7 +356,10 @@ async fn main() -> Result<()> {
             let mut common_data = MetricsCommonData::default();
             loop {
                 let health_gauge = gauge!("internal.health.ldap_monitoring",);
-                describe_gauge!("internal.health.ldap_monitoring", "LDAP cn=monitor scraper status");
+                describe_gauge!(
+                    "internal.health.ldap_monitoring",
+                    "LDAP cn=monitor scraper status"
+                );
                 if let Err(error) =
                     get_ldap_metrics(&config_clone.ldap_config, &mut common_data).await
                 {
