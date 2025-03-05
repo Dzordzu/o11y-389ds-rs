@@ -1,9 +1,11 @@
+mod checksum;
+
 use sha2::{Digest, Sha256};
 use std::{env, ffi::OsString, fs::read_dir, path::PathBuf};
 
 use chrono::DateTime;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
 use xshell::{cmd, Shell};
 
@@ -72,14 +74,6 @@ fn read_package(package: &str) -> Result<Package> {
     Ok(serde_json::from_value(pkg_info.clone())?)
 }
 
-pub fn binary_location(pkg: &Package) -> Result<std::path::PathBuf> {
-    Ok(get_project_root()?
-        .join("target")
-        .join(MUSL_DIR)
-        .join("release")
-        .join(&pkg.name))
-}
-
 pub fn common_rpm(pkg: &Package) -> Result<rpm::PackageBuilder> {
     let sh = Shell::new()?;
     let last_commit_date = DateTime::from_timestamp(
@@ -112,13 +106,10 @@ pub fn common_rpm(pkg: &Package) -> Result<rpm::PackageBuilder> {
 }
 
 fn common_rpm_build(pkg: rpm::PackageBuilder, rpm_name: &str) -> Result<()> {
-    let binary = Binary::from_project_version(rpm_name)?;
-
-    let name = format!("{}.{}.rpm", binary, std::env::consts::ARCH);
-    let result_path = get_project_root()?.join("target").join("dist").join(name);
+    let binary = Binary::from_version(rpm_name)?;
+    let result_path = binary.rpm_path()?;
 
     std::fs::create_dir_all(result_path.parent().unwrap())?;
-
     pkg.build()?.write_file(result_path)?;
 
     Ok(())
@@ -126,7 +117,7 @@ fn common_rpm_build(pkg: rpm::PackageBuilder, rpm_name: &str) -> Result<()> {
 
 fn nagios_389ds_rpm() -> Result<()> {
     let nagios_pkg = read_package("nagios-389ds-rs")?;
-    let binary_location = binary_location(&nagios_pkg)?;
+    let binary_location = Binary::from(&nagios_pkg).binary_path()?;
 
     let misc_path = get_project_root()?.join(MISC_DIR);
 
@@ -150,7 +141,7 @@ fn nagios_389ds_rpm() -> Result<()> {
 
 fn exporter_389ds_rpn() -> Result<()> {
     let exporter_pkg = read_package("exporter-389ds-rs")?;
-    let binary_location = binary_location(&exporter_pkg)?;
+    let binary_location = Binary::from(&exporter_pkg).binary_path()?;
     let root_dir = get_project_root()?;
 
     const PRE_INSTAL_SCRIPT: &str = r#"
@@ -221,14 +212,16 @@ fn exporter_389ds_rpn() -> Result<()> {
 
 fn copy_binaries(binaries: &[&str]) -> Result<()> {
     for binary_name in binaries {
-        Binary::from_project_version(binary_name)?.copy_to_dist()?;
+        Binary::from_version(binary_name)?.compress_binary_to_dist()?;
     }
     Ok(())
 }
 
 fn generate_checksums(binaries: &[&str]) -> Result<()> {
     for binary_name in binaries {
-        Binary::from_project_version(binary_name)?.save_checksum()?;
+        Binary::from_version(binary_name)?
+            .save_checksum()
+            .context(format!("Failed for {binary_name}"))?;
     }
     Ok(())
 }
@@ -307,13 +300,10 @@ impl std::fmt::Display for LabeledDistFile {
 }
 
 impl Binary {
-    pub fn copy_to_dist(&self) -> Result<()> {
-        let root = get_project_root()?;
-        let target = root.join("target").join(MUSL_DIR).join("release");
+    pub fn compress_binary_to_dist(&self) -> Result<()> {
+        let src = self.binary_path()?;
+        let dest = self.targz_path()?;
 
-        let src = target.join(&self.name);
-        let dest_filename = format!("{}.{}.tar.gz", self, std::env::consts::ARCH);
-        let dest = root.join("target").join("dist").join(&dest_filename);
         let dest_file = std::fs::File::create(&dest)?;
         let enc = flate2::write::GzEncoder::new(&dest_file, flate2::Compression::default());
         let mut builder = tar::Builder::new(enc);
@@ -322,46 +312,101 @@ impl Binary {
         Ok(())
     }
 
-    pub fn checksum(&self) -> Result<Vec<(String, PathBuf)>> {
+    pub fn compress_project_files_to_dist(&self, files: &[String]) -> Result<()> {
+        let dest = self.targz_path()?;
+        let dest_file = std::fs::File::create(&dest)?;
+        let enc = flate2::write::GzEncoder::new(&dest_file, flate2::Compression::default());
+        let mut builder = tar::Builder::new(enc);
+
+        for src in files {
+            builder.append_path_with_name(src, &self.name)?;
+        }
+
+        Ok(())
+    }
+
+    pub fn dist_path(&self) -> Result<PathBuf> {
         let root = get_project_root()?;
-        let binary_filepath = root
+        Ok(root.join("target").join("dist"))
+    }
+
+    pub fn targz_path(&self) -> Result<PathBuf> {
+        let targz_filename = format!("{}.{}.tar.gz", self, std::env::consts::ARCH);
+        Ok(self.dist_path()?.join(&targz_filename))
+    }
+
+    pub fn binary_path(&self) -> Result<PathBuf> {
+        let root = get_project_root()?;
+        Ok(root
             .join("target")
             .join(MUSL_DIR)
             .join("release")
-            .join(&self.name);
+            .join(&self.name))
+    }
 
-        let binary_content = std::fs::read(&binary_filepath)?;
-
-        let mut hasher = Sha256::new();
-        hasher.update(&binary_content);
-        let binary_checksum = format!("{:x}", hasher.finalize());
-
-        let package_filepath = root.join("target").join("dist").join(format!(
+    pub fn rpm_path(&self) -> Result<PathBuf> {
+        Ok(self.dist_path()?.join(format!(
             "{}.{}.rpm",
             self.versioned_binary(),
             std::env::consts::ARCH,
+        )))
+    }
+
+    pub fn sha256_path(&self) -> Result<PathBuf> {
+        Ok(self.dist_path()?.join(format!(
+            "{}.{}.sha256",
+            self.versioned_binary(),
+            std::env::consts::ARCH,
+        )))
+    }
+
+    pub fn code_path(&self) -> Result<PathBuf> {
+        let root = get_project_root()?;
+        Ok(root.join(&self.name))
+    }
+
+    pub fn checksum(&self) -> Result<Vec<(String, PathBuf)>> {
+        let mut result = vec![];
+
+        if self.binary_path()?.is_file() {
+            let binary_content =
+                std::fs::read(&self.binary_path()?).context("Failed reading binary")?;
+            let mut hasher = Sha256::new();
+            hasher.update(&binary_content);
+            let binary_checksum = format!("{:x}", hasher.finalize());
+
+            result.push((binary_checksum, self.binary_path()?));
+        }
+
+        let targz_content = std::fs::read(&self.targz_path()?).context("Failed reading targz")?;
+        let mut hasher = Sha256::new();
+        hasher.update(&targz_content);
+        let targz_checksum = format!("{:x}", hasher.finalize());
+        result.push((targz_checksum, self.targz_path()?));
+
+        if self.rpm_path()?.is_file() {
+            let package_content = std::fs::read(&self.rpm_path()?).context("Failed reading rpm")?;
+            let mut hasher = Sha256::new();
+            hasher.update(&package_content);
+            let package_checksum = format!("{:x}", hasher.finalize());
+            result.push((package_checksum, self.rpm_path()?));
+        }
+
+        let code_checksum = checksum::calculate_dir_checksum(&self.code_path()?)?;
+        result.push((
+            code_checksum,
+            std::path::PathBuf::from(format!("CODE[{}]", self.name)),
         ));
 
-        let package_content = std::fs::read(&package_filepath)?;
-
-        let mut hasher = Sha256::new();
-        hasher.update(&package_content);
-        let package_checksum = format!("{:x}", hasher.finalize());
-
-        let result = vec![
-            (binary_checksum, binary_filepath),
-            (package_checksum, package_filepath),
-        ];
+        let root_dir = get_project_root()?;
+        let code_checksum = checksum::calculate_dir_checksum(&root_dir.join("internal"))?;
+        result.push((code_checksum, std::path::PathBuf::from("CODE[internal]")));
 
         Ok(result)
     }
 
     pub fn save_checksum(&self) -> Result<()> {
-        let root = get_project_root()?;
-        let filepath = root
-            .join("target")
-            .join("dist")
-            .join(format!("{}.sha256", self.versioned_binary()));
+        let filepath = self.sha256_path()?;
 
         let file_contents = self.checksum()?.into_iter().fold(String::new(), |acc, x| {
             format!(
@@ -378,8 +423,7 @@ impl Binary {
     }
 
     pub fn get_release_files(&self) -> Result<Vec<LabeledDistFile>> {
-        let root = get_project_root()?;
-        let dist = root.join("target").join("dist");
+        let dist = self.dist_path()?;
 
         let files = std::fs::read_dir(&dist)?;
         let files: Vec<std::path::PathBuf> = files
@@ -420,8 +464,8 @@ impl Binary {
             .collect())
     }
 
-    pub fn from_project_version(name: &str) -> Result<Self> {
-        let cargo_toml_path = get_project_root()?.join(name).join("Cargo.toml");
+    fn from_version_file(name: &str, file: &str) -> Result<Self> {
+        let cargo_toml_path = get_project_root()?.join(name).join(file);
 
         let cargo_toml: serde_json::Value =
             toml::from_str(&std::fs::read_to_string(&cargo_toml_path)?)?;
@@ -439,6 +483,17 @@ impl Binary {
             name: name.to_string(),
             version,
         })
+    }
+
+    pub fn from_version(name: &str) -> Result<Self> {
+        let root = get_project_root()?.join(name);
+        if root.join("Cargo.toml").exists() {
+            Self::from_version_file(name, "Cargo.toml")
+        } else if root.join("project.toml").exists() {
+            Self::from_version_file(name, "project.toml")
+        } else {
+            Err(anyhow!("Could not find Cargo.toml or project.toml"))
+        }
     }
 
     pub fn create_and_push_tag(&self) -> Result<()> {
@@ -485,6 +540,15 @@ impl TryFrom<String> for Binary {
     type Error = ();
 }
 
+impl From<&Package> for Binary {
+    fn from(value: &Package) -> Self {
+        Binary {
+            name: value.name.clone(),
+            version: value.version.clone(),
+        }
+    }
+}
+
 fn release_binary(binary: &Binary, files: Vec<LabeledDistFile>) -> Result<()> {
     let sh = Shell::new()?;
     let mut files = files.into_iter().map(|f| f.to_string());
@@ -501,6 +565,30 @@ fn release_binary(binary: &Binary, files: Vec<LabeledDistFile>) -> Result<()> {
     Ok(())
 }
 
+fn compress_grafana_dashboards() -> Result<()> {
+    let grafana_root = get_project_root()?.join("grafana-389ds-rs");
+
+    let files = std::fs::read_dir(grafana_root)?
+        .filter_map(|x| {
+            x.ok()
+                .and_then(|x| {
+                    if x.file_name().to_string_lossy().ends_with(".json") {
+                        Some(x)
+                    } else {
+                        None
+                    }
+                })
+                .and_then(|x| x.path().is_file().then_some(x))
+        })
+        .map(|x| x.path().to_string_lossy().to_string())
+        .collect::<Vec<String>>();
+
+    let binary = Binary::from_version("grafana-389ds-rs")?;
+    binary.compress_project_files_to_dist(&files)?;
+
+    Ok(())
+}
+
 fn unstaged_changes() -> Result<bool> {
     let sh = Shell::new()?;
 
@@ -509,6 +597,7 @@ fn unstaged_changes() -> Result<bool> {
 
 /// Check if the tag already exists
 const BINARIES: &[&str] = &["nagios-389ds-rs", "exporter-389ds-rs"];
+const OTHER_PROJECTS: &[&str] = &["grafana-389ds-rs"];
 
 fn main() -> Result<()> {
     let args = Cli::parse();
@@ -524,7 +613,16 @@ fn main() -> Result<()> {
             println!("Finished packaging exporter");
             copy_binaries(BINARIES)?;
             println!("Copied binaries");
-            generate_checksums(BINARIES)?;
+            compress_grafana_dashboards()?;
+            println!("Compressed grafana dashboards into a single .tar.gz");
+            generate_checksums(
+                &BINARIES
+                    .iter()
+                    .chain(OTHER_PROJECTS)
+                    .copied()
+                    .collect::<Vec<_>>(),
+            )?;
+            println!("Generated checksums");
         }
         CliCommand::SetupRepo => {
             let root = get_project_root()?;
@@ -550,8 +648,8 @@ fn main() -> Result<()> {
             let already_released = ReleasedVersions::get_from_gh()?;
             let mut errors = Vec::new();
 
-            for binary in BINARIES {
-                let versioned_binary = Binary::from_project_version(binary)?;
+            for binary in BINARIES.iter().chain(OTHER_PROJECTS) {
+                let versioned_binary = Binary::from_version(binary)?;
 
                 if !(binaries.is_empty() || binaries.contains(&binary.to_string())) {
                     continue;

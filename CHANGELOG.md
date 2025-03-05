@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## grafana-389ds-rs-0.1.0 (2025-03-05)
+
+* Now releases include grafana dashboards
+* Added new dashboard
+* Fixed datasources in the original one
+
+
 ## exporter-389ds-rs-0.1.6 (2025-03-04)
 
 * Fixed issue with exporter timer (always counting 5s, regardless of the

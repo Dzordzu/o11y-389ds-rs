@@ -185,17 +185,6 @@ filter = <string:required>
 
 attrs = <[string]>                              # default: (all attributes)
 
-
-# ---------------------------
-# you'll know that you need it.
-# TODO: remove this option and handle the connection properly.
-# NOTE: This option is not a part of the stable API.
-# default: false
-
-fallback_return_code = <bool>                   
-# ---------------------------
-
-
 # ---------------------------
 # Overrides for main ldap config
 verify_certs = <bool>           # default: None
