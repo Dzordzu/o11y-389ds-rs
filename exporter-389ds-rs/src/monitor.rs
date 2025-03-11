@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use anyhow::Result;
 use internal::LdapConfig;
@@ -12,6 +12,9 @@ pub struct MetricsCommonData {
 
     ///  List of the used connection dns over duration of the exporter process
     pub connections_ips: HashMap<String, u64>,
+
+    /// Set of already recorded versions
+    pub version: HashSet<String>,
 
     /// Number of scrapes
     pub scrapes: u64,
@@ -37,9 +40,19 @@ async fn get_root_metrics(ldap: &mut Ldap, common_data: &mut MetricsCommonData) 
     let scraped = internal::monitor::LdapMonitor::scrape(ldap).await?;
     count_scrapes(PREFIX, Some(&mut common_data.scrapes));
 
-    let labels = vec![("version", scraped.version)];
-    let gauge = gauge!(format!("{PREFIX}version"), &labels);
+    let gauge = gauge!(format!("{PREFIX}version"), "version" => scraped.version.clone());
     gauge.set(1);
+
+    // Reset metrics for older versions
+    for version in common_data
+        .version
+        .iter()
+        .filter(|x| *x != &scraped.version)
+    {
+        let gauge = gauge!(format!("{PREFIX}version"), "version" => version.clone());
+        gauge.set(0);
+    }
+    common_data.version.insert(scraped.version);
 
     let gauge = gauge!(format!("{PREFIX}connection.count"));
     gauge.set(scraped.connections.count() as f64);

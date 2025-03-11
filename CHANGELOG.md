@@ -1,5 +1,8 @@
 # CHANGELOG
 
+## exporter-389ds-rs-0.1.8 (2025-03-11)
+* Fixed issue with version metric (old versions were kept)
+
 ## exporter-389ds-rs-0.1.7 (2025-03-05)
 
 * Updated cargo dependencies
