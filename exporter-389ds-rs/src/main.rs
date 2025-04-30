@@ -26,7 +26,7 @@ async fn get_dsctl_metrics(
     cmd_cfg: &CommandConfig,
     common_data: &mut DsctlCommonData,
 ) -> Result<()> {
-    let healthchecks = cmd_cfg.healthcheck().await?;
+    let healthchecks = cmd_cfg.healthchecks().await?;
 
     let g = gauge!("dsctl.healthcheck.healthy", "instance" => cmd_cfg.instance_name.clone());
     g.set((healthchecks.is_empty()) as u8 as f64);

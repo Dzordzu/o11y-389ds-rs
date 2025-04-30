@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## nagios-389ds-rs-0.1.6 (2025-04-30)
+
+* Fixed issue with dsctl spawning. Now only one dsctl is spawned at one moment.
+  Old ones are killed
+* Now logs are excluded from healtchecks
+
+## exporter-389ds-rs-0.1.10 (2025-04-30)
+
+* Fixed issue with blocking behavior of dsctl spawning introduced in 0.1.9
+* Now logs are excluded from healtchecks
+
 ## exporter-389ds-rs-0.1.9 (2025-04-30)
 
 * Fixed issue with dsctl spawning. Now only one dsctl is spawned at one moment.

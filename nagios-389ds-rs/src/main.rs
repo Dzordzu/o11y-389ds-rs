@@ -1004,7 +1004,7 @@ pub async fn command_select(config: LdapConfig, args: Cli, result: &mut Nagios) 
                 instance_name: config.instance.clone(),
             };
 
-            let healthchecks = cli_conf.healthcheck().await?;
+            let healthchecks = cli_conf.healthchecks().await?;
 
             let low_severity = healthchecks
                 .iter()
