@@ -1,6 +1,12 @@
 # CHANGELOG
 
+## exporter-389ds-rs-0.1.9 (2025-04-30)
+
+* Fixed issue with dsctl spawning. Now only one dsctl is spawned at one moment.
+  Old ones are killed
+
 ## exporter-389ds-rs-0.1.8 (2025-03-11)
+
 * Fixed issue with version metric (old versions were kept)
 
 ## exporter-389ds-rs-0.1.7 (2025-03-05)

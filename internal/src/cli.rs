@@ -68,7 +68,14 @@ impl CommandConfig {
 
     async fn execute_cmd(&self, cmd: &mut Command) -> Result<std::process::Output> {
         Ok(if let Some(timeout_s) = self.timeout_seconds {
-            timeout(Duration::from_secs(timeout_s), cmd.output()).await??
+            let mut spawned = cmd.spawn()?;
+            match timeout(Duration::from_secs(timeout_s), spawned.wait()).await {
+                Err(e) => {
+                    spawned.kill().await?;
+                    Err(e)?
+                }
+                Ok(_) => spawned.wait_with_output().await?,
+            }
         } else {
             cmd.output().await?
         })
