@@ -1,5 +1,6 @@
 # I have a dream
 
+* [ ] memberof integrity metrics and checks
 * [ ] OTEL sender
 * [ ] audit log parsing
 * [ ] access log parsing
@@ -11,4 +12,3 @@
 * [ ] tests
 * [ ] docker image
 * [ ] manpages and autocompletion
-* [ ] memberof integrity metrics and checks
