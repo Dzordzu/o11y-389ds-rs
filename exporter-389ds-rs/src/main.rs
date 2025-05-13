@@ -95,24 +95,41 @@ fn default_expose_address() -> String {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct Config {
+pub struct ExporterConfig {
     #[serde(default = "default_expose_port")]
     pub expose_port: u16,
 
     #[serde(default = "default_expose_address")]
     pub expose_address: String,
 
-    #[serde(flatten)]
-    pub ldap_config: LdapConfig,
-
-    #[serde(default)]
-    pub dsctl: CommandConfig,
-
     #[serde(default = "default_scrape_interval_seconds")]
     pub scrape_interval_seconds: u64,
 
     #[serde(default)]
     pub scrape_flags: ScrapeFlags,
+}
+
+impl Default for ExporterConfig {
+    fn default() -> Self {
+        Self {
+            expose_port: default_expose_port(),
+            expose_address: default_expose_address(),
+            scrape_interval_seconds: default_scrape_interval_seconds(),
+            scrape_flags: Default::default(),
+        }
+    }
+}
+
+#[derive(Deserialize, Debug, Clone, Default)]
+pub struct Config {
+    #[serde(default)]
+    pub exporter: ExporterConfig,
+
+    #[serde(flatten)]
+    pub ldap_config: LdapConfig,
+
+    #[serde(default)]
+    pub dsctl: CommandConfig,
 
     #[serde(default)]
     pub query: Vec<internal::query::CustomQuery>,
@@ -144,20 +161,6 @@ impl Default for ScrapeFlags {
             replication_status: true,
             gids_info: false,
             dsctl: false,
-        }
-    }
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            scrape_interval_seconds: default_scrape_interval_seconds(),
-            expose_port: default_expose_port(),
-            expose_address: default_expose_address(),
-            scrape_flags: Default::default(),
-            ldap_config: Default::default(),
-            dsctl: Default::default(),
-            query: Default::default(),
         }
     }
 }
@@ -250,15 +253,15 @@ async fn main() -> Result<()> {
     }
 
     if let Some(scrape_interval_seconds) = args.scrape_interval_seconds {
-        config.scrape_interval_seconds = scrape_interval_seconds;
+        config.exporter.scrape_interval_seconds = scrape_interval_seconds;
     }
 
     if let Some(expose_address) = args.expose_address {
-        config.expose_address = expose_address;
+        config.exporter.expose_address = expose_address;
     }
 
     if let Some(expose_port) = args.expose_port {
-        config.expose_port = expose_port;
+        config.exporter.expose_port = expose_port;
     }
 
     if let Some(basedn) = args.basedn {
@@ -276,25 +279,29 @@ async fn main() -> Result<()> {
 
     for disable_flag in args.disable_flags {
         match disable_flag {
-            ArgFlag::Replication => config.scrape_flags.replication_status = false,
-            ArgFlag::LdapMonitor => config.scrape_flags.ldap_monitoring = false,
-            ArgFlag::GidsInfo => config.scrape_flags.gids_info = false,
-            ArgFlag::Dsctl => config.scrape_flags.dsctl = false,
+            ArgFlag::Replication => config.exporter.scrape_flags.replication_status = false,
+            ArgFlag::LdapMonitor => config.exporter.scrape_flags.ldap_monitoring = false,
+            ArgFlag::GidsInfo => config.exporter.scrape_flags.gids_info = false,
+            ArgFlag::Dsctl => config.exporter.scrape_flags.dsctl = false,
         }
     }
 
     for enable_flags in args.enable_flags {
         match enable_flags {
-            ArgFlag::Replication => config.scrape_flags.replication_status = true,
-            ArgFlag::LdapMonitor => config.scrape_flags.ldap_monitoring = true,
-            ArgFlag::GidsInfo => config.scrape_flags.gids_info = true,
-            ArgFlag::Dsctl => config.scrape_flags.dsctl = true,
+            ArgFlag::Replication => config.exporter.scrape_flags.replication_status = true,
+            ArgFlag::LdapMonitor => config.exporter.scrape_flags.ldap_monitoring = true,
+            ArgFlag::GidsInfo => config.exporter.scrape_flags.gids_info = true,
+            ArgFlag::Dsctl => config.exporter.scrape_flags.dsctl = true,
         }
     }
 
     let builder = PrometheusBuilder::new()
         .with_http_listener(
-            format!("{}:{}", config.expose_address, config.expose_port).parse::<SocketAddr>()?,
+            format!(
+                "{}:{}",
+                config.exporter.expose_address, config.exporter.expose_port
+            )
+            .parse::<SocketAddr>()?,
         )
         .add_global_label("ldap_uri", config.ldap_config.uri.clone());
     builder.install()?;
@@ -328,7 +335,8 @@ async fn main() -> Result<()> {
                 "How long o11y-389ds-rs daemon has been already running"
             );
 
-            gauge!("internal.scrape_interval_seconds").set(config.scrape_interval_seconds as f64);
+            gauge!("internal.scrape_interval_seconds")
+                .set(config.exporter.scrape_interval_seconds as f64);
             gauge!(
                 "internal.exporter_info",
                 "version" => env!("CARGO_PKG_VERSION"),
@@ -338,7 +346,7 @@ async fn main() -> Result<()> {
 
             select! {
                 _ = tokio::time::sleep(tokio::time::Duration::from_secs(
-                    config.scrape_interval_seconds,
+                    config.exporter.scrape_interval_seconds,
                 )) => {
 
                 },
@@ -351,7 +359,7 @@ async fn main() -> Result<()> {
 
     let cancel_token = cancel_token_orig.clone();
     let config_clone = config.clone();
-    if config.scrape_flags.ldap_monitoring {
+    if config.exporter.scrape_flags.ldap_monitoring {
         tracker.spawn(async move {
             let mut common_data = MetricsCommonData::default();
             loop {
@@ -371,7 +379,7 @@ async fn main() -> Result<()> {
 
                 select! {
                     _ = tokio::time::sleep(tokio::time::Duration::from_secs(
-                        config.scrape_interval_seconds,
+                        config.exporter.scrape_interval_seconds,
                     )) => {
 
                     },
@@ -389,7 +397,7 @@ async fn main() -> Result<()> {
 
     let cancel_token = cancel_token_orig.clone();
     let config_clone = config.clone();
-    if config.scrape_flags.gids_info {
+    if config.exporter.scrape_flags.gids_info {
         tracker.spawn(async move {
             loop {
                 let health_gauge = gauge!("internal.health.gids",);
@@ -404,7 +412,7 @@ async fn main() -> Result<()> {
 
                 select! {
                     _ = tokio::time::sleep(tokio::time::Duration::from_secs(
-                        config.scrape_interval_seconds,
+                        config.exporter.scrape_interval_seconds,
                     )) => {
 
                     },
@@ -422,7 +430,7 @@ async fn main() -> Result<()> {
 
     let cancel_token = cancel_token_orig.clone();
     let config_clone = config.clone();
-    if config.scrape_flags.replication_status {
+    if config.exporter.scrape_flags.replication_status {
         tracker.spawn(async move {
             let mut common_data = ReplicationCommonData::default();
             let health_gauge = gauge!("internal.health.replication",);
@@ -440,7 +448,7 @@ async fn main() -> Result<()> {
 
                 select! {
                     _ = tokio::time::sleep(tokio::time::Duration::from_secs(
-                        config.scrape_interval_seconds,
+                        config.exporter.scrape_interval_seconds,
                     )) => {
 
                     },
@@ -458,7 +466,7 @@ async fn main() -> Result<()> {
 
     let cancel_token = cancel_token_orig.clone();
     let config_clone = config.clone();
-    if config.scrape_flags.dsctl {
+    if config.exporter.scrape_flags.dsctl {
         tracker.spawn(async move {
             let mut common_data = DsctlCommonData::default();
             let health_gauge = gauge!("internal.health.dsctl",);
@@ -473,7 +481,7 @@ async fn main() -> Result<()> {
 
                 select! {
                     _ = tokio::time::sleep(tokio::time::Duration::from_secs(
-                        config.scrape_interval_seconds,
+                        config.exporter.scrape_interval_seconds,
                     )) => {
 
                     },
@@ -505,7 +513,7 @@ async fn main() -> Result<()> {
 
             select! {
                 _ = tokio::time::sleep(tokio::time::Duration::from_secs(
-                    config.scrape_interval_seconds,
+                    config.exporter.scrape_interval_seconds,
                 )) => {
 
                 },

@@ -144,14 +144,24 @@ page_size = <int>                               # default: 999
 scrape_interval_seconds = <int>                 # default: 5
 bind = <BIND>                                   # default: None
 dsctl = <DSCTL>                                 # default: DSCTL::default
+exporter = <EXPORTER>                           # default: EXPORTER::default
+haproxy = <HAPROXY>                             # default: HAPROXY::default
+query = <[QUERY]>                               # default: []
+```
 
-# ---------------------------
-# Exporter only
+**\<HAPROXY> type**
+```
+expose_port <int>                               # default: 9966
+expose_address = <string>                       # default: 0.0.0.0
+query = <[string]>                              # default: []
+```
+
+**\<EXPORTER> type**
+```
 expose_port <int>                               # default: 9100
 expose_address = <string>                       # default: 0.0.0.0
 scrape_flags = <SCRAPE_FLAGS>                   # default: SCRAPE_FLAGS::default
-query = <[QUERY]>                               # default: []
-# ---------------------------
+query = <[string]>                              # default: []
 ```
 
 **\<SCRAPE\_FLAGS> type**
