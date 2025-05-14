@@ -95,27 +95,38 @@ fn default_expose_address() -> String {
 }
 
 #[derive(Deserialize, Debug, Clone)]
-pub struct Config {
+pub struct ExporterConfig {
     #[serde(default = "default_expose_port")]
     pub expose_port: u16,
 
     #[serde(default = "default_expose_address")]
     pub expose_address: String,
 
-    #[serde(flatten)]
-    pub ldap_config: LdapConfig,
-
-    #[serde(default)]
-    pub dsctl: CommandConfig,
-
     #[serde(default = "default_scrape_interval_seconds")]
     pub scrape_interval_seconds: u64,
 
     #[serde(default)]
     pub scrape_flags: ScrapeFlags,
+}
 
+impl Default for ExporterConfig {
+    fn default() -> Self {
+        Self {
+            expose_port: default_expose_port(),
+            expose_address: default_expose_address(),
+            scrape_interval_seconds: default_scrape_interval_seconds(),
+            scrape_flags: Default::default(),
+        }
+    }
+}
+
+#[derive(Deserialize, Debug, Clone, Default)]
+pub struct Config {
     #[serde(default)]
-    pub query: Vec<internal::query::CustomQuery>,
+    pub exporter: ExporterConfig,
+
+    #[serde(flatten)]
+    pub common: internal::config::CommonConfig,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -144,20 +155,6 @@ impl Default for ScrapeFlags {
             replication_status: true,
             gids_info: false,
             dsctl: false,
-        }
-    }
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            scrape_interval_seconds: default_scrape_interval_seconds(),
-            expose_port: default_expose_port(),
-            expose_address: default_expose_address(),
-            scrape_flags: Default::default(),
-            ldap_config: Default::default(),
-            dsctl: Default::default(),
-            query: Default::default(),
         }
     }
 }
@@ -236,67 +233,71 @@ async fn main() -> Result<()> {
     };
 
     if let Some(page_size) = args.page_size {
-        config.ldap_config.page_size = page_size;
+        config.common.ldap_config.page_size = page_size;
     }
 
     if let Some(dn) = args.binddn {
         let pass = args.bindpass.unwrap();
         let bind = Bind { dn, pass };
-        config.ldap_config.bind = Some(bind);
+        config.common.ldap_config.bind = Some(bind);
     }
 
     if let Some(host) = args.host {
-        config.ldap_config.uri = host;
+        config.common.ldap_config.uri = host;
     }
 
     if let Some(scrape_interval_seconds) = args.scrape_interval_seconds {
-        config.scrape_interval_seconds = scrape_interval_seconds;
+        config.exporter.scrape_interval_seconds = scrape_interval_seconds;
     }
 
     if let Some(expose_address) = args.expose_address {
-        config.expose_address = expose_address;
+        config.exporter.expose_address = expose_address;
     }
 
     if let Some(expose_port) = args.expose_port {
-        config.expose_port = expose_port;
+        config.exporter.expose_port = expose_port;
     }
 
     if let Some(basedn) = args.basedn {
-        config.ldap_config.default_base = basedn;
+        config.common.ldap_config.default_base = basedn;
     }
 
     if args.skip_cert_verification {
-        config.ldap_config.verify_certs = false;
+        config.common.ldap_config.verify_certs = false;
     }
 
-    if config.ldap_config.default_base.is_empty() {
-        config.ldap_config.detect_base().await?;
-        tracing::info!("Set base to the {}", config.ldap_config.default_base);
+    if config.common.ldap_config.default_base.is_empty() {
+        config.common.ldap_config.detect_base().await?;
+        tracing::info!("Set base to the {}", config.common.ldap_config.default_base);
     }
 
     for disable_flag in args.disable_flags {
         match disable_flag {
-            ArgFlag::Replication => config.scrape_flags.replication_status = false,
-            ArgFlag::LdapMonitor => config.scrape_flags.ldap_monitoring = false,
-            ArgFlag::GidsInfo => config.scrape_flags.gids_info = false,
-            ArgFlag::Dsctl => config.scrape_flags.dsctl = false,
+            ArgFlag::Replication => config.exporter.scrape_flags.replication_status = false,
+            ArgFlag::LdapMonitor => config.exporter.scrape_flags.ldap_monitoring = false,
+            ArgFlag::GidsInfo => config.exporter.scrape_flags.gids_info = false,
+            ArgFlag::Dsctl => config.exporter.scrape_flags.dsctl = false,
         }
     }
 
     for enable_flags in args.enable_flags {
         match enable_flags {
-            ArgFlag::Replication => config.scrape_flags.replication_status = true,
-            ArgFlag::LdapMonitor => config.scrape_flags.ldap_monitoring = true,
-            ArgFlag::GidsInfo => config.scrape_flags.gids_info = true,
-            ArgFlag::Dsctl => config.scrape_flags.dsctl = true,
+            ArgFlag::Replication => config.exporter.scrape_flags.replication_status = true,
+            ArgFlag::LdapMonitor => config.exporter.scrape_flags.ldap_monitoring = true,
+            ArgFlag::GidsInfo => config.exporter.scrape_flags.gids_info = true,
+            ArgFlag::Dsctl => config.exporter.scrape_flags.dsctl = true,
         }
     }
 
     let builder = PrometheusBuilder::new()
         .with_http_listener(
-            format!("{}:{}", config.expose_address, config.expose_port).parse::<SocketAddr>()?,
+            format!(
+                "{}:{}",
+                config.exporter.expose_address, config.exporter.expose_port
+            )
+            .parse::<SocketAddr>()?,
         )
-        .add_global_label("ldap_uri", config.ldap_config.uri.clone());
+        .add_global_label("ldap_uri", config.common.ldap_config.uri.clone());
     builder.install()?;
 
     let program_start_timestamp = Instant::now();
@@ -328,7 +329,8 @@ async fn main() -> Result<()> {
                 "How long o11y-389ds-rs daemon has been already running"
             );
 
-            gauge!("internal.scrape_interval_seconds").set(config.scrape_interval_seconds as f64);
+            gauge!("internal.scrape_interval_seconds")
+                .set(config.exporter.scrape_interval_seconds as f64);
             gauge!(
                 "internal.exporter_info",
                 "version" => env!("CARGO_PKG_VERSION"),
@@ -338,7 +340,7 @@ async fn main() -> Result<()> {
 
             select! {
                 _ = tokio::time::sleep(tokio::time::Duration::from_secs(
-                    config.scrape_interval_seconds,
+                    config.exporter.scrape_interval_seconds,
                 )) => {
 
                 },
@@ -351,7 +353,7 @@ async fn main() -> Result<()> {
 
     let cancel_token = cancel_token_orig.clone();
     let config_clone = config.clone();
-    if config.scrape_flags.ldap_monitoring {
+    if config.exporter.scrape_flags.ldap_monitoring {
         tracker.spawn(async move {
             let mut common_data = MetricsCommonData::default();
             loop {
@@ -361,7 +363,7 @@ async fn main() -> Result<()> {
                     "LDAP cn=monitor scraper status"
                 );
                 if let Err(error) =
-                    get_ldap_metrics(&config_clone.ldap_config, &mut common_data).await
+                    get_ldap_metrics(&config_clone.common.ldap_config, &mut common_data).await
                 {
                     tracing::error!("Error: {}", error);
                     health_gauge.set(0);
@@ -371,7 +373,7 @@ async fn main() -> Result<()> {
 
                 select! {
                     _ = tokio::time::sleep(tokio::time::Duration::from_secs(
-                        config.scrape_interval_seconds,
+                        config.exporter.scrape_interval_seconds,
                     )) => {
 
                     },
@@ -389,13 +391,13 @@ async fn main() -> Result<()> {
 
     let cancel_token = cancel_token_orig.clone();
     let config_clone = config.clone();
-    if config.scrape_flags.gids_info {
+    if config.exporter.scrape_flags.gids_info {
         tracker.spawn(async move {
             loop {
                 let health_gauge = gauge!("internal.health.gids",);
                 describe_gauge!("internal.health.gids", "GIDs scraper status");
 
-                if let Err(error) = get_gids_metrics(&config_clone.ldap_config).await {
+                if let Err(error) = get_gids_metrics(&config_clone.common.ldap_config).await {
                     tracing::error!("Error: {}", error);
                     health_gauge.set(0);
                 } else {
@@ -404,7 +406,7 @@ async fn main() -> Result<()> {
 
                 select! {
                     _ = tokio::time::sleep(tokio::time::Duration::from_secs(
-                        config.scrape_interval_seconds,
+                        config.exporter.scrape_interval_seconds,
                     )) => {
 
                     },
@@ -422,7 +424,7 @@ async fn main() -> Result<()> {
 
     let cancel_token = cancel_token_orig.clone();
     let config_clone = config.clone();
-    if config.scrape_flags.replication_status {
+    if config.exporter.scrape_flags.replication_status {
         tracker.spawn(async move {
             let mut common_data = ReplicationCommonData::default();
             let health_gauge = gauge!("internal.health.replication",);
@@ -430,7 +432,8 @@ async fn main() -> Result<()> {
 
             loop {
                 if let Err(error) =
-                    get_ldap_replica_metrics(&config_clone.ldap_config, &mut common_data).await
+                    get_ldap_replica_metrics(&config_clone.common.ldap_config, &mut common_data)
+                        .await
                 {
                     tracing::error!("Error: {}", error);
                     health_gauge.set(0);
@@ -440,7 +443,7 @@ async fn main() -> Result<()> {
 
                 select! {
                     _ = tokio::time::sleep(tokio::time::Duration::from_secs(
-                        config.scrape_interval_seconds,
+                        config.exporter.scrape_interval_seconds,
                     )) => {
 
                     },
@@ -458,13 +461,15 @@ async fn main() -> Result<()> {
 
     let cancel_token = cancel_token_orig.clone();
     let config_clone = config.clone();
-    if config.scrape_flags.dsctl {
+    if config.exporter.scrape_flags.dsctl {
         tracker.spawn(async move {
             let mut common_data = DsctlCommonData::default();
             let health_gauge = gauge!("internal.health.dsctl",);
             describe_gauge!("internal.health.dsctl", "cli scraper status");
             loop {
-                if let Err(error) = get_dsctl_metrics(&config_clone.dsctl, &mut common_data).await {
+                if let Err(error) =
+                    get_dsctl_metrics(&config_clone.common.scrapers.dsctl, &mut common_data).await
+                {
                     tracing::error!("Error: {}", error);
                     health_gauge.set(0);
                 } else {
@@ -473,7 +478,7 @@ async fn main() -> Result<()> {
 
                 select! {
                     _ = tokio::time::sleep(tokio::time::Duration::from_secs(
-                        config.scrape_interval_seconds,
+                        config.exporter.scrape_interval_seconds,
                     )) => {
 
                     },
@@ -505,7 +510,7 @@ async fn main() -> Result<()> {
 
             select! {
                 _ = tokio::time::sleep(tokio::time::Duration::from_secs(
-                    config.scrape_interval_seconds,
+                    config.exporter.scrape_interval_seconds,
                 )) => {
 
                 },
@@ -543,9 +548,9 @@ async fn handle_query(query: CustomQuery) -> Result<()> {
 }
 
 async fn get_queries_metrics(config: &Config) -> Result<()> {
-    let queries = config.query.clone();
+    let queries = config.common.scrapers.query.clone();
     for mut query in queries {
-        query.ldap_config = config.ldap_config.clone();
+        query.ldap_config = config.common.ldap_config.clone();
         tokio::spawn(async move {
             if let Err(e) = handle_query(query).await {
                 tracing::error!("Error: {}", e);
