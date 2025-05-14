@@ -1,17 +1,41 @@
 ldap_uri = "ldap://localhost"
 page_size = 999
+scrape_interval_seconds = 10
+
+[bind]
+dn = "cn=Directory Manager"
+# Try to decode it from base64 ;)
+pass = "bm90IHNvIGVhc3kh"
+
+# Common data scrapers configuration
+[scrapers]
+  [scrapers.dsctl]
+  instance = "default"
+  timeout_seconds = 10
+
+  [[scrapers.query]]
+  name = "list-users"
+  filter = "(&(objectClass=posixAccount)(objectClass=inetOrgPerson))"
+  attrs = ["memberof"]
+
+  [[scrapers.query]]
+  name = "list-groups"
+  filter = "(&(objectClass=posixGroup)(objectClass=groupOfNames))"
 
 [exporter]
 expose_port = 9100
 expose_address = "127.0.0.1"
 scrape_interval_seconds = 5
-query = ["list-users"]
 
   [exporter.scrape_flags]
   gids_info = true
   replication_status = true
   ldap_monitoring = true
   dsctl = true
+
+  [[exporter.query]]
+  name = "list-users"
+  scrape_interval_seconds = 60
 
 
 [haproxy]
@@ -39,25 +63,7 @@ expose_address = "127.0.0.1"
   scrape_interval_seconds = 2
 
   [[haproxy.query]]
-  name = "list-groups"
+  name = "list-users"
   action = "count-attrs"
   attr = "memberOf"
   greater_than = 0
-
-[bind]
-dn = "cn=Directory Manager"
-# Try to decode it from base64 ;)
-pass = "bm90IHNvIGVhc3kh"
-
-[dsctl]
-instance = "default"
-timeout_seconds = 10
-
-[[query]]
-name = "list-users"
-filter = "(&(objectClass=posixAccount)(objectClass=inetOrgPerson))"
-
-[[query]]
-name = "list-groups"
-filter = "(&(objectClass=posixGroup)(objectClass=groupOfNames))"
-attrs = ["memberof"]

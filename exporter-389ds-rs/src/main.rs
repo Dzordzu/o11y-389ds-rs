@@ -126,13 +126,7 @@ pub struct Config {
     pub exporter: ExporterConfig,
 
     #[serde(flatten)]
-    pub ldap_config: LdapConfig,
-
-    #[serde(default)]
-    pub dsctl: CommandConfig,
-
-    #[serde(default)]
-    pub query: Vec<internal::query::CustomQuery>,
+    pub common: internal::config::CommonConfig,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -239,17 +233,17 @@ async fn main() -> Result<()> {
     };
 
     if let Some(page_size) = args.page_size {
-        config.ldap_config.page_size = page_size;
+        config.common.ldap_config.page_size = page_size;
     }
 
     if let Some(dn) = args.binddn {
         let pass = args.bindpass.unwrap();
         let bind = Bind { dn, pass };
-        config.ldap_config.bind = Some(bind);
+        config.common.ldap_config.bind = Some(bind);
     }
 
     if let Some(host) = args.host {
-        config.ldap_config.uri = host;
+        config.common.ldap_config.uri = host;
     }
 
     if let Some(scrape_interval_seconds) = args.scrape_interval_seconds {
@@ -265,16 +259,16 @@ async fn main() -> Result<()> {
     }
 
     if let Some(basedn) = args.basedn {
-        config.ldap_config.default_base = basedn;
+        config.common.ldap_config.default_base = basedn;
     }
 
     if args.skip_cert_verification {
-        config.ldap_config.verify_certs = false;
+        config.common.ldap_config.verify_certs = false;
     }
 
-    if config.ldap_config.default_base.is_empty() {
-        config.ldap_config.detect_base().await?;
-        tracing::info!("Set base to the {}", config.ldap_config.default_base);
+    if config.common.ldap_config.default_base.is_empty() {
+        config.common.ldap_config.detect_base().await?;
+        tracing::info!("Set base to the {}", config.common.ldap_config.default_base);
     }
 
     for disable_flag in args.disable_flags {
@@ -303,7 +297,7 @@ async fn main() -> Result<()> {
             )
             .parse::<SocketAddr>()?,
         )
-        .add_global_label("ldap_uri", config.ldap_config.uri.clone());
+        .add_global_label("ldap_uri", config.common.ldap_config.uri.clone());
     builder.install()?;
 
     let program_start_timestamp = Instant::now();
@@ -369,7 +363,7 @@ async fn main() -> Result<()> {
                     "LDAP cn=monitor scraper status"
                 );
                 if let Err(error) =
-                    get_ldap_metrics(&config_clone.ldap_config, &mut common_data).await
+                    get_ldap_metrics(&config_clone.common.ldap_config, &mut common_data).await
                 {
                     tracing::error!("Error: {}", error);
                     health_gauge.set(0);
@@ -403,7 +397,7 @@ async fn main() -> Result<()> {
                 let health_gauge = gauge!("internal.health.gids",);
                 describe_gauge!("internal.health.gids", "GIDs scraper status");
 
-                if let Err(error) = get_gids_metrics(&config_clone.ldap_config).await {
+                if let Err(error) = get_gids_metrics(&config_clone.common.ldap_config).await {
                     tracing::error!("Error: {}", error);
                     health_gauge.set(0);
                 } else {
@@ -438,7 +432,8 @@ async fn main() -> Result<()> {
 
             loop {
                 if let Err(error) =
-                    get_ldap_replica_metrics(&config_clone.ldap_config, &mut common_data).await
+                    get_ldap_replica_metrics(&config_clone.common.ldap_config, &mut common_data)
+                        .await
                 {
                     tracing::error!("Error: {}", error);
                     health_gauge.set(0);
@@ -472,7 +467,9 @@ async fn main() -> Result<()> {
             let health_gauge = gauge!("internal.health.dsctl",);
             describe_gauge!("internal.health.dsctl", "cli scraper status");
             loop {
-                if let Err(error) = get_dsctl_metrics(&config_clone.dsctl, &mut common_data).await {
+                if let Err(error) =
+                    get_dsctl_metrics(&config_clone.common.scrapers.dsctl, &mut common_data).await
+                {
                     tracing::error!("Error: {}", error);
                     health_gauge.set(0);
                 } else {
@@ -551,9 +548,9 @@ async fn handle_query(query: CustomQuery) -> Result<()> {
 }
 
 async fn get_queries_metrics(config: &Config) -> Result<()> {
-    let queries = config.query.clone();
+    let queries = config.common.scrapers.query.clone();
     for mut query in queries {
-        query.ldap_config = config.ldap_config.clone();
+        query.ldap_config = config.common.ldap_config.clone();
         tokio::spawn(async move {
             if let Err(e) = handle_query(query).await {
                 tracing::error!("Error: {}", e);
