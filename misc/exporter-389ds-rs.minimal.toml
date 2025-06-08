@@ -1,17 +1,20 @@
-[scrape_flags]
-gids_info = true
-replication_status = true
-ldap_monitoring = true
-dsctl = true
+[exporter]
+query = [{ name = "list-posix-users" }, { name = "list-posix-groups" }]
 
-[dsctl]
+  [exporter.scrape_flags]
+  gids_info = true
+  replication_status = true
+  ldap_monitoring = true
+  dsctl = true
+
+[scrapers.dsctl]
 instance = "default"
 timeout_seconds = 10
 
-[[query]]
+[[scrapers.query]]
 name = "list-posix-users"
 filter = "(objectClass=posixAccount)"
 
-[[query]]
+[[scrapers.query]]
 name = "list-posix-groups"
 filter = "(objectClass=posixGroup)"
