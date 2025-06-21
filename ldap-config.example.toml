@@ -9,61 +9,61 @@ pass = "bm90IHNvIGVhc3kh"
 
 # Common data scrapers configuration
 [scrapers]
-  [scrapers.dsctl]
-  instance = "default"
-  timeout_seconds = 10
+   [scrapers.dsctl]
+   instance = "default"
+   timeout_seconds = 10
 
-  [[scrapers.query]]
-  name = "list-users"
-  filter = "(&(objectClass=posixAccount)(objectClass=inetOrgPerson))"
-  attrs = ["memberof"]
+   [[scrapers.query]]
+   name = "list-users"
+   filter = "(&(objectClass=posixAccount)(objectClass=inetOrgPerson))"
+   attrs = ["memberof"]
 
-  [[scrapers.query]]
-  name = "list-groups"
-  filter = "(&(objectClass=posixGroup)(objectClass=groupOfNames))"
+   [[scrapers.query]]
+   name = "list-groups"
+   filter = "(&(objectClass=posixGroup)(objectClass=groupOfNames))"
 
 [exporter]
 expose_port = 9100
 expose_address = "127.0.0.1"
 scrape_interval_seconds = 5
 
-  [exporter.scrape_flags]
-  gids_info = true
-  replication_status = true
-  ldap_monitoring = true
-  dsctl = true
+   [exporter.scrape_flags]
+   gids_info = true
+   replication_status = true
+   ldap_monitoring = true
+   dsctl = true
 
-  [[exporter.query]]
-  name = "list-users"
-  scrape_interval_seconds = 60
+   [[exporter.query]]
+   name = "list-users"
+   scrape_interval_seconds = 60
 
 
 [haproxy]
 expose_port = 9966
 expose_address = "127.0.0.1"
 
-  [haproxy.scrape_flags]
-  replication_status = true
-  ldap_monitoring = true
+   [haproxy.scrape_flags]
+   replication_status = true
+   ldap_monitoring = true
 
-  [haproxy.scrape_interval_seconds]
-  replication_status = 30
-  ldap_monitoring = 5
+   [haproxy.scrape_interval_seconds]
+   replication_status = 30
+   ldap_monitoring = 5
 
-  [[haproxy.query]]
-  name = "list-users"
-  action = "count-entries"
-  greater_than = 0
-  scrape_interval_seconds = 30
+   [[haproxy.query]]
+   name = "list-users"
+   action = "count-entries"
+   greater_than = 0
+   scrape_interval_seconds = 30
 
-  [[haproxy.query]]
-  name = "list-groups"
-  action = "count-entries"
-  greater_than = 0
-  scrape_interval_seconds = 2
+   [[haproxy.query]]
+   name = "list-groups"
+   action = "count-entries"
+   greater_than = 0
+   scrape_interval_seconds = 2
 
-  [[haproxy.query]]
-  name = "list-users"
-  action = "count-attrs"
-  attr = "memberOf"
-  greater_than = 0
+   [[haproxy.query]]
+   name = "list-users"
+   action = "count-attrs"
+   attr = "memberOf"
+   greater_than = 0

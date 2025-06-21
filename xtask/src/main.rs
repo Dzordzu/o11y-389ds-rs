@@ -1,11 +1,10 @@
-mod checksum;
-
-use sha2::{Digest, Sha256};
-use std::{env, ffi::OsString, fs::read_dir, path::PathBuf};
+use std::{ffi::OsString, path::PathBuf};
+use xtask_toolkit::cargo::{get_project_root, CargoToml};
+use xtask_toolkit::checksums::ChecksumsToFile;
 
 use chrono::DateTime;
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
 use xshell::{cmd, Shell};
 
@@ -41,37 +40,12 @@ pub struct Cli {
     pub command: CliCommand,
 }
 
-fn get_project_root() -> Result<PathBuf> {
-    let path = env::current_dir()?;
-    let path_ancestors = path.as_path().ancestors();
-
-    for p in path_ancestors {
-        let has_cargo = read_dir(p)?.any(|p| p.unwrap().file_name() == *"Cargo.lock");
-        if has_cargo {
-            return Ok(PathBuf::from(p));
-        }
-    }
-    Err(anyhow!("Could not find Cargo.lock."))
-}
-
 #[derive(Debug, serde::Deserialize)]
 pub struct Package {
     pub version: String,
     pub name: String,
     pub license: String,
     pub description: String,
-}
-
-fn read_package(package: &str) -> Result<Package> {
-    let root = get_project_root()?;
-    let cargo_toml = std::fs::read_to_string(root.join(package).join("Cargo.toml"))?;
-    let json_content: serde_json::Value = toml::from_str(&cargo_toml)?;
-
-    let pkg_info = json_content
-        .get("package")
-        .ok_or(anyhow!("Could not find package key in the Cargo.toml"))?;
-
-    Ok(serde_json::from_value(pkg_info.clone())?)
 }
 
 pub fn common_rpm(pkg: &Package) -> Result<rpm::PackageBuilder> {
@@ -105,28 +79,33 @@ pub fn common_rpm(pkg: &Package) -> Result<rpm::PackageBuilder> {
     .url("https://github.com/dzordzu/o11y-389ds-rs"))
 }
 
-fn common_rpm_build(pkg: rpm::PackageBuilder, rpm_name: &str) -> Result<()> {
-    let binary = Binary::from_version(rpm_name)?;
-    let result_path = binary.rpm_path()?;
-
-    std::fs::create_dir_all(result_path.parent().unwrap())?;
-    pkg.build()?.write_file(result_path)?;
+fn common_rpm_build(
+    config: &GeneralConfig,
+    cargo_toml: &CargoToml,
+    pkg: rpm::PackageBuilder,
+) -> Result<()> {
+    let filename = format!(
+        "{}.{}.rpm",
+        cargo_toml.versioned_name().unwrap(),
+        std::env::consts::ARCH
+    );
+    std::fs::create_dir_all(&config.dist_files_dir)?;
+    pkg.build()?
+        .write_file(config.dist_files_dir.join(filename))?;
 
     Ok(())
 }
 
-fn nagios_389ds_rpm() -> Result<()> {
-    let nagios_pkg = read_package("nagios-389ds-rs")?;
-    let binary_location = Binary::from(&nagios_pkg).binary_path()?;
-
+fn nagios_389ds_rpm(config: &GeneralConfig) -> Result<()> {
     let misc_path = get_project_root()?.join(MISC_DIR);
 
-    let pkg = common_rpm(&nagios_pkg)?
-        .with_file(
-            binary_location,
-            rpm::FileOptions::new("/usr/lib64/nagios/plugins/check_389ds_rs")
-                .mode(rpm::FileMode::regular(0o755)),
-        )?
+    let cargo_toml = config.nagios_project();
+
+    let rpm_builder = xtask_toolkit::package_rpm::Package::new(cargo_toml.clone())
+        .with_binary_destination("/usr/lib64/nagios/plugins/")
+        .with_binary_filename("check_389ds_rs")
+        .with_binary_src_archname(MUSL_DIR)
+        .builder()?
         .with_file(
             misc_path.join("nagios.sudoers"),
             rpm::FileOptions::new("/etc/sudoers.d/nagios-389ds-rs")
@@ -134,63 +113,21 @@ fn nagios_389ds_rpm() -> Result<()> {
                 .user("root"),
         )?;
 
-    common_rpm_build(pkg, &nagios_pkg.name)?;
+    common_rpm_build(config, cargo_toml, rpm_builder)?;
 
     Ok(())
 }
 
-fn exporter_389ds_rpn() -> Result<()> {
-    let exporter_pkg = read_package("exporter-389ds-rs")?;
-    let binary_location = Binary::from(&exporter_pkg).binary_path()?;
+fn exporter_389ds_rpm(config: &GeneralConfig) -> Result<()> {
     let root_dir = get_project_root()?;
-
-    const PRE_INSTAL_SCRIPT: &str = r#"
-        if [ -z "$(getent passwd | grep exporter-389ds-rs)" ]; then 
-            useradd -r exporter-389ds-rs; 
-        fi
-    "#;
-
-    const POST_INSTALL_SCRIPT: &str = r#"
-        systemctl daemon-reload; 
-    "#;
-
-    const PRE_UNINSTALL_SCRIPT: &str = r#"
-        IS_UPGRADED="$1"
-        case "$IS_UPGRADED" in
-           0) # This is a yum remove.
-              if [ -n "$(getent passwd | grep exporter-389ds-rs)" ]; then 
-                  systemctl disable exporter-389ds-rs.service;
-                  systemctl stop exporter-389ds-rs.service;
-                  userdel exporter-389ds-rs;
-              fi
-           ;;
-           1) # This is a yum upgrade.
-              systemctl is-active --quiet exporter-389ds-rs && systemctl restart exporter-389ds-rs;
-              exit 0;
-           ;;
-         esac
-    "#;
-
-    const POST_UNINSTALL_SCRIPT: &str = r#"
-        systemctl daemon-reload;
-    "#;
-
     let misc_path = root_dir.join(MISC_DIR);
+    let cargo_toml = config.exporter_project();
 
-    let pkg = common_rpm(&exporter_pkg)?
-        .pre_install_script(PRE_INSTAL_SCRIPT)
-        .post_install_script(POST_INSTALL_SCRIPT)
-        .pre_uninstall_script(PRE_UNINSTALL_SCRIPT)
-        .post_uninstall_script(POST_UNINSTALL_SCRIPT)
-        .with_file(
-            binary_location,
-            rpm::FileOptions::new("/usr/bin/exporter-389ds-rs").mode(rpm::FileMode::regular(0o755)),
-        )?
-        .with_file(
-            misc_path.join("exporter-389ds-rs.service"),
-            rpm::FileOptions::new("/etc/systemd/system/exporter-389ds-rs.service")
-                .mode(rpm::FileMode::regular(0o644)),
-        )?
+    let rpm_builder = xtask_toolkit::package_rpm::Package::new(cargo_toml.clone())
+        .with_binary_src_archname(MUSL_DIR)
+        .with_systemd_unit(misc_path.join("exporter-389ds-rs.service"))
+        .expect("Could not find systemd unit file")
+        .builder()?
         .with_file(
             misc_path.join("exporter.sudoers"),
             rpm::FileOptions::new("/etc/sudoers.d/exporter-389ds-rs")
@@ -205,435 +142,234 @@ fn exporter_389ds_rpn() -> Result<()> {
                 .user("exporter-389ds-rs"),
         )?;
 
-    common_rpm_build(pkg, &exporter_pkg.name)?;
+    common_rpm_build(config, cargo_toml, rpm_builder)?;
 
     Ok(())
 }
 
-fn copy_binaries(binaries: &[&str]) -> Result<()> {
-    for binary_name in binaries {
-        Binary::from_version(binary_name)?.compress_binary_to_dist()?;
+fn copy_binaries(config: &GeneralConfig) -> Result<()> {
+    for binary_name in &config.binaries {
+        let dist = config.targz_path(
+            &config
+                .projects
+                .iter()
+                .find(|x| x.name().is_some_and(|x| &x == binary_name))
+                .ok_or(anyhow!("Could not find binary {binary_name}"))?
+                .versioned_name()
+                .unwrap_or(binary_name.to_string()),
+        );
+        xtask_toolkit::targz::DirCompress::new(&config.release_target_dir)
+            .expect("Could not create compressor")
+            .filter_filename(binary_name)
+            .compress(&dist)?;
     }
-    Ok(())
-}
-
-fn generate_checksums(binaries: &[&str]) -> Result<()> {
-    for binary_name in binaries {
-        Binary::from_version(binary_name)?
-            .save_checksum()
-            .context(format!("Failed for {binary_name}"))?;
-    }
-    Ok(())
-}
-
-fn build_binaries(binaries: &[&str]) -> Result<()> {
-    let sh = Shell::new()?;
-
-    let projects: Vec<String> = binaries.iter().map(|x| format!("-p={}", x)).collect();
-
-    sh.cmd("cargo")
-        .args([
-            "build",
-            "--release",
-            "--target",
-            "x86_64-unknown-linux-musl",
-        ])
-        .args(projects)
-        .read()?;
 
     Ok(())
 }
 
-pub struct ReleasedVersions(Vec<Binary>);
-impl ReleasedVersions {
-    pub fn get_from_gh() -> Result<ReleasedVersions> {
-        #[derive(serde::Deserialize)]
-        pub struct GhResponse {
-            #[serde(rename = "tagName")]
-            pub tag_name: String,
+fn generate_checksums_new(config: &GeneralConfig) -> Result<()> {
+    let mut files_checksums = xtask_toolkit::checksums::PathChecksum::calculate_entries_sha256(
+        config.dist_files_dir.as_path(),
+    )?;
+
+    for project in &config.projects {
+        if let Some(subproject_name) = project.versioned_name() {
+            let code_checksum = xtask_toolkit::checksums::PathChecksum::calculate_sha256_filtered(
+                project.path().parent().unwrap(),
+                |p| {
+                    p.file_name().is_some_and(|x| {
+                        !x.to_string_lossy().starts_with(".") && x.to_string_lossy() != "target"
+                    })
+                },
+            )?;
+            files_checksums.insert(format!("CODE[{}]", subproject_name), code_checksum);
         }
-
-        let sh = Shell::new()?;
-        let previous_releases: Vec<GhResponse> =
-            serde_json::from_str(&cmd!(sh, "gh release list --json tagName").read()?)?;
-
-        Ok(Self(
-            previous_releases
-                .into_iter()
-                .filter_map(|x| Binary::try_from(x.tag_name).ok())
-                .collect(),
-        ))
     }
 
-    pub fn contains(&self, binary: &Binary) -> bool {
-        self.0.iter().any(|x| x == binary)
-    }
-}
+    let grafana_checksums = xtask_toolkit::checksums::PathChecksum::calculate_entries_sha256(
+        config
+            .grafana_project()
+            .path()
+            .parent()
+            .expect("Could not get grafana dir"),
+    )?;
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct Binary {
-    pub name: String,
-    pub version: String,
-}
+    files_checksums.extend(grafana_checksums.into_iter().filter_map(|(x, y)| {
+        (!x.starts_with(".")).then_some((format!("grafana-389ds-rs/{x}"), y))
+    }));
 
-impl std::fmt::Display for Binary {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str(&self.versioned_binary())
-    }
-}
-
-#[derive(Debug)]
-pub struct LabeledDistFile {
-    pub path: std::path::PathBuf,
-    pub label: Option<String>,
-}
-
-impl std::fmt::Display for LabeledDistFile {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let dist_file = if let Some(label) = &self.label {
-            format!("{}#{}", self.path.display(), label)
-        } else {
-            self.path.display().to_string()
-        };
-        f.write_str(&dist_file)
-    }
-}
-
-impl Binary {
-    pub fn compress_binary_to_dist(&self) -> Result<()> {
-        let src = self.binary_path()?;
-        let dest = self.targz_path()?;
-
-        let dest_file = std::fs::File::create(&dest)?;
-        let enc = flate2::write::GzEncoder::new(&dest_file, flate2::Compression::default());
-        let mut builder = tar::Builder::new(enc);
-        builder.append_path_with_name(&src, &self.name)?;
-
-        Ok(())
-    }
-
-    pub fn compress_project_files_to_dist(&self, files: &[String]) -> Result<()> {
-        let dest = self.targz_path()?;
-        let dest_file = std::fs::File::create(&dest)?;
-        let enc = flate2::write::GzEncoder::new(&dest_file, flate2::Compression::default());
-        let mut builder = tar::Builder::new(enc);
-
-        for src in files {
-            builder.append_path_with_name(src, &self.name)?;
-        }
-
-        Ok(())
-    }
-
-    pub fn dist_path(&self) -> Result<PathBuf> {
-        let root = get_project_root()?;
-        Ok(root.join("target").join("dist"))
-    }
-
-    pub fn targz_path(&self) -> Result<PathBuf> {
-        let targz_filename = format!("{}.{}.tar.gz", self, std::env::consts::ARCH);
-        Ok(self.dist_path()?.join(&targz_filename))
-    }
-
-    pub fn binary_path(&self) -> Result<PathBuf> {
-        let root = get_project_root()?;
-        Ok(root
-            .join("target")
-            .join(MUSL_DIR)
-            .join("release")
-            .join(&self.name))
-    }
-
-    pub fn rpm_path(&self) -> Result<PathBuf> {
-        Ok(self.dist_path()?.join(format!(
-            "{}.{}.rpm",
-            self.versioned_binary(),
-            std::env::consts::ARCH,
-        )))
-    }
-
-    pub fn sha256_path(&self) -> Result<PathBuf> {
-        Ok(self.dist_path()?.join(format!(
-            "{}.{}.sha256",
-            self.versioned_binary(),
-            std::env::consts::ARCH,
-        )))
-    }
-
-    pub fn code_path(&self) -> Result<PathBuf> {
-        let root = get_project_root()?;
-        Ok(root.join(&self.name))
-    }
-
-    pub fn checksum(&self) -> Result<Vec<(String, PathBuf)>> {
-        let mut result = vec![];
-
-        if self.binary_path()?.is_file() {
-            let binary_content =
-                std::fs::read(&self.binary_path()?).context("Failed reading binary")?;
-            let mut hasher = Sha256::new();
-            hasher.update(&binary_content);
-            let binary_checksum = format!("{:x}", hasher.finalize());
-
-            result.push((binary_checksum, self.binary_path()?));
-        }
-
-        let targz_content = std::fs::read(&self.targz_path()?).context("Failed reading targz")?;
-        let mut hasher = Sha256::new();
-        hasher.update(&targz_content);
-        let targz_checksum = format!("{:x}", hasher.finalize());
-        result.push((targz_checksum, self.targz_path()?));
-
-        if self.rpm_path()?.is_file() {
-            let package_content = std::fs::read(&self.rpm_path()?).context("Failed reading rpm")?;
-            let mut hasher = Sha256::new();
-            hasher.update(&package_content);
-            let package_checksum = format!("{:x}", hasher.finalize());
-            result.push((package_checksum, self.rpm_path()?));
-        }
-
-        let code_checksum = checksum::calculate_dir_checksum(&self.code_path()?)?;
-        result.push((
-            code_checksum,
-            std::path::PathBuf::from(format!("CODE[{}]", self.name)),
-        ));
-
-        let root_dir = get_project_root()?;
-        let code_checksum = checksum::calculate_dir_checksum(&root_dir.join("internal"))?;
-        result.push((code_checksum, std::path::PathBuf::from("CODE[internal]")));
-
-        Ok(result)
-    }
-
-    pub fn save_checksum(&self) -> Result<()> {
-        let filepath = self.sha256_path()?;
-
-        let file_contents = self.checksum()?.into_iter().fold(String::new(), |acc, x| {
-            format!(
-                "{} {} {}\n",
-                acc,
-                x.0,
-                x.1.file_name().unwrap().to_str().unwrap()
-            )
-        });
-
-        std::fs::write(&filepath, file_contents)?;
-
-        Ok(())
-    }
-
-    pub fn get_release_files(&self) -> Result<Vec<LabeledDistFile>> {
-        let dist = self.dist_path()?;
-
-        let files = std::fs::read_dir(&dist)?;
-        let files: Vec<std::path::PathBuf> = files
-            .filter_map(|entry| {
-                entry.ok().and_then(|path| {
-                    path.file_type()
-                        .is_ok_and(|p| p.is_file())
-                        .then_some(path.path())
+    for project in &config.projects {
+        if let Some(package_name) = project.versioned_name().and_then(|_| project.name()) {
+            let mut checksums = files_checksums
+                .iter()
+                .filter_map(|(k, v)| {
+                    ((k.starts_with(&package_name)
+                        || k.starts_with("CODE[internal")
+                        || (k.contains(&package_name) && k.starts_with("CODE")))
+                        && !k.ends_with("sha256"))
+                    .then_some((k.clone(), v.clone()))
                 })
-            })
-            .filter(|x| {
-                x.file_name()
-                    .unwrap()
-                    .to_string_lossy()
-                    .contains(&self.to_string())
-            })
-            .collect();
+                .collect::<Vec<_>>();
 
-        Ok(files
-            .into_iter()
-            .map(|path| {
-                let filename = path.file_name().unwrap().to_string_lossy().to_string();
+            checksums.sort_by_key(|(k, _)| k.to_string());
 
-                if filename.ends_with(".rpm") && filename.contains("x86_64") {
-                    LabeledDistFile {
-                        path,
-                        label: Some("RPM package (x86-64/amd64)".to_string()),
-                    }
-                } else if filename.ends_with(".tar.gz") && filename.contains("x86_64") {
-                    LabeledDistFile {
-                        path,
-                        label: Some("Binary (x86-64/amd64)".to_string()),
-                    }
-                } else {
-                    LabeledDistFile { path, label: None }
-                }
-            })
-            .collect())
-    }
-
-    fn from_version_file(name: &str, file: &str) -> Result<Self> {
-        let cargo_toml_path = get_project_root()?.join(name).join(file);
-
-        let cargo_toml: serde_json::Value =
-            toml::from_str(&std::fs::read_to_string(&cargo_toml_path)?)?;
-
-        let version = cargo_toml
-            .get("package")
-            .ok_or(anyhow!("Could not find package key in the Cargo.toml"))?
-            .get("version")
-            .ok_or(anyhow!("Could not find version key in the Cargo.toml"))?
-            .as_str()
-            .ok_or(anyhow!("Could not parse version"))?
-            .to_string();
-
-        Ok(Self {
-            name: name.to_string(),
-            version,
-        })
-    }
-
-    pub fn from_version(name: &str) -> Result<Self> {
-        let root = get_project_root()?.join(name);
-        if root.join("Cargo.toml").exists() {
-            Self::from_version_file(name, "Cargo.toml")
-        } else if root.join("project.toml").exists() {
-            Self::from_version_file(name, "project.toml")
-        } else {
-            Err(anyhow!("Could not find Cargo.toml or project.toml"))
+            checksums.into_iter().save_checksum(
+                &config
+                    .dist_files_dir
+                    .join(format!("{package_name}.{}.sha256", std::env::consts::ARCH)),
+            )?;
         }
     }
 
-    pub fn create_and_push_tag(&self) -> Result<()> {
-        let sh = Shell::new()?;
-        let versioned = self.versioned_binary();
-
-        cmd!(sh, "git tag {versioned}").run()?;
-        cmd!(sh, "git push origin {versioned}").run()?;
-        Ok(())
-    }
-
-    pub fn versioned_binary(&self) -> String {
-        format!("{}-{}", self.name, self.version)
-    }
-
-    fn already_tagged(&self) -> Result<bool> {
-        let sh = Shell::new()?;
-
-        let tags = cmd!(sh, "git tag")
-            .read()?
-            .split('\n')
-            .map(|x| x.trim().to_string())
-            .collect::<Vec<_>>();
-
-        Ok(tags.contains(&self.versioned_binary()))
-    }
+    Ok(())
 }
 
-impl TryFrom<String> for Binary {
-    fn try_from(value: String) -> Result<Self, Self::Error> {
-        let (name, version) = value.rsplit_once('-').ok_or(())?;
-
-        let version_regex = regex::Regex::new("^[0-9]+\\.[0-9]+\\.[0-9]+$").unwrap();
-        if version_regex.is_match(version) {
-            Ok(Binary {
-                name: name.to_string(),
-                version: version.to_string(),
-            })
-        } else {
-            Err(())
-        }
-    }
-
-    type Error = ();
-}
-
-impl From<&Package> for Binary {
-    fn from(value: &Package) -> Self {
-        Binary {
-            name: value.name.clone(),
-            version: value.version.clone(),
-        }
-    }
-}
-
-fn release_binary(binary: &Binary, files: Vec<LabeledDistFile>) -> Result<()> {
-    let sh = Shell::new()?;
-    let mut files = files.into_iter().map(|f| f.to_string());
+fn release_binary(name: &str, version: &str, files: Vec<PathBuf>) -> Result<()> {
+    let files: Vec<String> = files
+        .iter()
+        .map(|x| x.to_string_lossy().to_string())
+        .collect();
 
     println!(
         "{}",
-        sh.cmd("gh")
-            .args(["release", "create", "--generate-notes"])
-            .arg(binary.to_string())
-            .args(&mut files)
-            .read()?
+        xtask_toolkit::gh_cli::Release::new(name, version)?.release(&files)?
     );
 
     Ok(())
 }
 
-fn compress_grafana_dashboards() -> Result<()> {
-    let grafana_root = get_project_root()?.join("grafana-389ds-rs");
+fn compress_grafana_dashboards(config: &GeneralConfig) -> Result<()> {
+    let grafana_dir = config
+        .grafana_project()
+        .path()
+        .parent()
+        .unwrap()
+        .to_path_buf();
 
-    let files = std::fs::read_dir(grafana_root)?
-        .filter_map(|x| {
-            x.ok()
-                .and_then(|x| {
-                    if x.file_name().to_string_lossy().ends_with(".json") {
-                        Some(x)
-                    } else {
-                        None
-                    }
-                })
-                .and_then(|x| x.path().is_file().then_some(x))
-        })
-        .map(|x| x.path().to_string_lossy().to_string())
-        .collect::<Vec<String>>();
-
-    let binary = Binary::from_version("grafana-389ds-rs")?;
-    binary.compress_project_files_to_dist(&files)?;
+    xtask_toolkit::targz::DirCompress::new(&grafana_dir)
+        .ok_or(anyhow!(
+            "Could not create compressor for grafana dashboards - dir {:?} does not exist",
+            grafana_dir
+        ))?
+        .filter_extension(".json")
+        .compress(
+            &config.targz_path(
+                &config.grafana_project().versioned_name().unwrap_or(
+                    config
+                        .grafana_project()
+                        .name()
+                        .expect("Could not get project name"),
+                ),
+            ),
+        )?;
 
     Ok(())
-}
-
-fn unstaged_changes() -> Result<bool> {
-    let sh = Shell::new()?;
-
-    Ok(!cmd!(sh, "git status --porcelain").read()?.is_empty())
 }
 
 /// Check if the tag already exists
 const BINARIES: &[&str] = &["nagios-389ds-rs", "exporter-389ds-rs"];
 const OTHER_PROJECTS: &[&str] = &["grafana-389ds-rs"];
 
+pub struct GeneralConfig {
+    pub projects: Vec<CargoToml>,
+
+    pub project_root: PathBuf,
+
+    /// Default dir for cargo builds
+    pub release_target_dir: PathBuf,
+
+    /// Directory with all files for the distribution
+    pub dist_files_dir: PathBuf,
+
+    pub binaries: Vec<String>,
+}
+
+impl Default for GeneralConfig {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl GeneralConfig {
+    pub fn new() -> Self {
+        let projects = CargoToml::autodiscovery_with(&["project.toml"]);
+        let project_root = get_project_root().unwrap();
+
+        Self {
+            projects,
+            release_target_dir: project_root.join("target").join(MUSL_DIR).join("release"),
+            dist_files_dir: project_root.join("target").join("dist"),
+            project_root,
+            binaries: BINARIES.iter().map(|x| x.to_string()).collect(),
+        }
+    }
+
+    pub fn exporter_project(&self) -> &CargoToml {
+        self.projects
+            .iter()
+            .find(|x| x.name().is_some_and(|x| x == "exporter-389ds-rs"))
+            .expect("exporter-389ds-rs not found")
+    }
+
+    pub fn grafana_project(&self) -> &CargoToml {
+        self.projects
+            .iter()
+            .find(|x| x.name().is_some_and(|x| x == "grafana-389ds-rs"))
+            .expect("grafana-389ds-rs not found")
+    }
+
+    pub fn nagios_project(&self) -> &CargoToml {
+        self.projects
+            .iter()
+            .find(|x| x.name().is_some_and(|x| x == "nagios-389ds-rs"))
+            .expect("nagios-389ds-rs not found")
+    }
+
+    pub fn targz_path(&self, name: &str) -> PathBuf {
+        self.dist_files_dir
+            .join(format!("{}.{}.tar.gz", name, std::env::consts::ARCH))
+    }
+}
+
 fn main() -> Result<()> {
     let args = Cli::parse();
 
+    let general_config = GeneralConfig::new();
+
     match args.command {
         CliCommand::Dist => {
-            println!("Cleaned cargo");
-            build_binaries(BINARIES)?;
-            println!("Built for musl");
-            nagios_389ds_rpm()?;
-            println!("Finished packaging nagios");
-            exporter_389ds_rpn()?;
-            println!("Finished packaging exporter");
-            copy_binaries(BINARIES)?;
-            println!("Copied binaries");
-            compress_grafana_dashboards()?;
-            println!("Compressed grafana dashboards into a single .tar.gz");
-            generate_checksums(
-                &BINARIES
-                    .iter()
-                    .chain(OTHER_PROJECTS)
-                    .copied()
-                    .collect::<Vec<_>>(),
-            )?;
+            xtask_toolkit::cargo::BinaryBuild::new()
+                .with_projects(&general_config.binaries)
+                .with_target(MUSL_DIR)
+                .build()
+                .inspect_err(|_| println!("Failed to build for musl"))
+                .inspect(|_| println!("Built for musl"))?;
+
+            nagios_389ds_rpm(&general_config)
+                .inspect_err(|_| println!("Failed to package nagios"))
+                .inspect(|_| println!("Finished packaging nagios"))?;
+
+            exporter_389ds_rpm(&general_config)
+                .inspect_err(|_| println!("Failed to package exporter"))
+                .inspect(|_| println!("Finished packaging exporter"))?;
+
+            copy_binaries(&general_config)
+                .inspect_err(|_| println!("Failed to copy binaries"))
+                .inspect(|_| println!("Copied binaries"))?;
+
+            compress_grafana_dashboards(&general_config)
+                .inspect_err(|_| println!("Failed to compress grafana dashboards"))
+                .inspect(|_| println!("Compressed grafana dashboards"))?;
+
+            generate_checksums_new(&general_config)?;
             println!("Generated checksums");
         }
         CliCommand::SetupRepo => {
-            let root = get_project_root()?;
-            let src = root.join("xtask").join("pre-commit.py");
-            let dest = root.join(".git").join("hooks").join("pre-commit");
-            std::fs::copy(src, dest)?;
+            xtask_toolkit::precommit::install_precommit(Default::default())?;
         }
         CliCommand::Fmt => {
+            xtask_toolkit::cargo::force_fmt()?;
             let sh = Shell::new()?;
-            cmd!(sh, "cargo fmt").read()?;
-            cmd!(sh, "cargo clippy --fix --allow-dirty --allow-staged").read()?;
             cmd!(sh, "taplo format").read()?;
         }
         CliCommand::Release {
@@ -641,15 +377,23 @@ fn main() -> Result<()> {
             skip_tagging,
             binaries,
         } => {
-            if unstaged_changes()? {
+            if xtask_toolkit::git::unstaged_changes()? {
                 return Err(anyhow!("There are unstaged changes. Stash or commit them"));
             }
 
-            let already_released = ReleasedVersions::get_from_gh()?;
+            let already_released = xtask_toolkit::gh_cli::Release::get_from_gh()?;
             let mut errors = Vec::new();
 
             for binary in BINARIES.iter().chain(OTHER_PROJECTS) {
-                let versioned_binary = Binary::from_version(binary)?;
+                let project = general_config
+                    .projects
+                    .iter()
+                    .find(|x| x.name().as_deref() == Some(binary))
+                    .unwrap();
+
+                let versioned_binary = project.versioned_name().unwrap();
+                let project_name = project.name().unwrap();
+                let project_version = project.version().unwrap();
 
                 if !(binaries.is_empty() || binaries.contains(&binary.to_string())) {
                     continue;
@@ -657,25 +401,41 @@ fn main() -> Result<()> {
 
                 println!("Releasing {versioned_binary}");
 
-                if already_released.contains(&versioned_binary) {
+                if already_released.iter().any(|released| {
+                    released.name == project_name && released.version.to_string() == project_version
+                }) {
                     println!("{} has been already released", versioned_binary);
                     continue;
                 }
 
-                let files = versioned_binary.get_release_files()?;
+                let files: Vec<PathBuf> = general_config
+                    .dist_files_dir
+                    .read_dir()?
+                    .filter_map(|entry| {
+                        entry.ok().and_then(|path| {
+                            path.file_name()
+                                .to_string_lossy()
+                                .starts_with(&project_name)
+                                .then_some(path.path())
+                        })
+                    })
+                    .collect();
+
                 if files.is_empty() {
                     println!("No files to attach to the release ({})", &binary);
                     continue;
                 }
 
-                if versioned_binary.already_tagged()? && !allow_tagged {
+                let already_tagged = xtask_toolkit::git::has_tag(&versioned_binary)?;
+
+                if already_tagged && !allow_tagged {
                     println!("Tag already exists. Use --allow-tagged to force the release");
                     continue;
                 } else if !skip_tagging {
-                    versioned_binary.create_and_push_tag()?;
+                    xtask_toolkit::git::create_and_push_tag(&versioned_binary)?;
                 }
 
-                errors.push(release_binary(&versioned_binary, files));
+                errors.push(release_binary(&project_name, &project_version, files));
             }
             for err in errors {
                 err?;

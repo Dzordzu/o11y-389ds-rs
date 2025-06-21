@@ -1,11 +1,11 @@
 [exporter]
 query = [{ name = "list-posix-users" }, { name = "list-posix-groups" }]
 
-  [exporter.scrape_flags]
-  gids_info = true
-  replication_status = true
-  ldap_monitoring = true
-  dsctl = true
+   [exporter.scrape_flags]
+   gids_info = true
+   replication_status = true
+   ldap_monitoring = true
+   dsctl = true
 
 [scrapers.dsctl]
 instance = "default"
