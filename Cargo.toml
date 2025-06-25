@@ -1,6 +1,12 @@
 [workspace]
 resolver = "2"
-members = ["exporter-389ds-rs", "internal", "nagios-389ds-rs", "xtask"]
+members = [
+   "exporter-389ds-rs",
+   "haproxy-389ds-rs",
+   "internal",
+   "nagios-389ds-rs",
+   "xtask",
+]
 
    [workspace.dependencies]
    anyhow = "1.0.95"

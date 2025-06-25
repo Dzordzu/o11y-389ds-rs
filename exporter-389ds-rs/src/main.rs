@@ -95,6 +95,14 @@ fn default_expose_address() -> String {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+pub struct ExporterQuery {
+    name: String,
+
+    #[serde(default = "default_scrape_interval_seconds")]
+    scrape_interval_seconds: u64,
+}
+
+#[derive(Deserialize, Debug, Clone)]
 pub struct ExporterConfig {
     #[serde(default = "default_expose_port")]
     pub expose_port: u16,
@@ -107,6 +115,9 @@ pub struct ExporterConfig {
 
     #[serde(default)]
     pub scrape_flags: ScrapeFlags,
+
+    #[serde(default)]
+    pub queries: Vec<ExporterQuery>,
 }
 
 impl Default for ExporterConfig {
@@ -116,6 +127,7 @@ impl Default for ExporterConfig {
             expose_address: default_expose_address(),
             scrape_interval_seconds: default_scrape_interval_seconds(),
             scrape_flags: Default::default(),
+            queries: Default::default(),
         }
     }
 }
@@ -177,9 +189,11 @@ pub enum ArgFlag {
 #[derive(Parser)]
 #[clap(group(ArgGroup::new("bind").requires_all(["binddn", "bindpass"]).multiple(true)))]
 pub struct Args {
+    /// Path to the TOML configuration file
     #[clap(short, long)]
     config: Option<PathBuf>,
 
+    /// LDAP paging setting
     #[clap(short = 'P', long)]
     page_size: Option<i32>,
 
@@ -217,6 +231,64 @@ pub struct Args {
     #[clap(short = 'd', long)]
     #[clap(value_enum)]
     disable_flags: Vec<ArgFlag>,
+}
+
+async fn setup_query_checks(
+    cancel_token: CancellationToken,
+    config: Config,
+    tracker: &TaskTracker,
+) -> Result<()> {
+    let queries = config.exporter.queries.iter().filter_map(|exporter_query| {
+        if let Some(query_def) = config
+            .common
+            .scrapers
+            .query
+            .iter()
+            .find(|query| query.name == exporter_query.name)
+        {
+            Some((exporter_query.clone(), query_def.clone()))
+        } else {
+            tracing::error!("Query {} not found", exporter_query.name);
+            let health_gauge =
+                gauge!("internal.health.query_not_found", "name" => exporter_query.name.clone());
+            health_gauge.set(0);
+            None
+        }
+    });
+
+    describe_gauge!("internal.health.query", "queries scraper status");
+
+    for mut query in queries {
+        let cancel_token = cancel_token.clone();
+        let config = config.clone();
+
+        tracker.spawn(async move {
+            query.1.ldap_config = config.common.ldap_config.clone();
+            let health_gauge = gauge!("internal.health.query", "name" => query.1.name.clone());
+
+            loop {
+                if let Err(e) = handle_query(query.1.clone()).await {
+                    tracing::error!("Error: {}", e);
+                    health_gauge.set(0);
+                } else {
+                    health_gauge.set(1);
+                }
+
+                select! {
+                    _ = tokio::time::sleep(tokio::time::Duration::from_secs(
+                        query.0.scrape_interval_seconds,
+                    )) => {
+
+                    },
+                    _ = cancel_token.cancelled() => {
+                        break
+                    }
+                }
+            }
+        });
+    }
+
+    Ok(())
 }
 
 #[tokio::main]
@@ -494,32 +566,7 @@ async fn main() -> Result<()> {
         })
     };
 
-    let cancel_token = cancel_token_orig.clone();
-    let config_clone = config.clone();
-    tracker.spawn(async move {
-        loop {
-            let health_gauge = gauge!("internal.health.queries",);
-            describe_gauge!("internal.health.queries", "queries scraper status");
-
-            if let Err(error) = get_queries_metrics(&config_clone).await {
-                tracing::error!("Error: {}", error);
-                health_gauge.set(0);
-            } else {
-                health_gauge.set(1);
-            }
-
-            select! {
-                _ = tokio::time::sleep(tokio::time::Duration::from_secs(
-                    config.exporter.scrape_interval_seconds,
-                )) => {
-
-                },
-                _ = cancel_token.cancelled() => {
-                    break
-                }
-            }
-        }
-    });
+    setup_query_checks(cancel_token_orig.clone(), config.clone(), &tracker).await?;
 
     tracker.close();
     tracker.wait().await;
@@ -543,20 +590,6 @@ async fn handle_query(query: CustomQuery) -> Result<()> {
 
     let g = gauge!("custom_query.ldap_code", &labels);
     g.set(metrics.ldap_code as f64);
-
-    Ok(())
-}
-
-async fn get_queries_metrics(config: &Config) -> Result<()> {
-    let queries = config.common.scrapers.query.clone();
-    for mut query in queries {
-        query.ldap_config = config.common.ldap_config.clone();
-        tokio::spawn(async move {
-            if let Err(e) = handle_query(query).await {
-                tracing::error!("Error: {}", e);
-            }
-        });
-    }
 
     Ok(())
 }

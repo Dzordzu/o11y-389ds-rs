@@ -145,7 +145,6 @@ unless stated otherwise.
 * Variant `X` of the enum `E`: `<E::X`>
 * Default value of the type `T`: `T::default`
 
-
 #### Definition
 
 ```toml
@@ -188,6 +187,7 @@ timeout_seconds = <int>                         # default: 10
 ```toml
 name = <string:required>
 filter = <string:required>
+max_entries = <int>                             # default: (all possible entries)
 
 attrs = <[string]>                              # default: (all attributes)
 

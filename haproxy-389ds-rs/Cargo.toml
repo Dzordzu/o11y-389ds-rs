@@ -1,0 +1,10 @@
+[package]
+name = "haproxy-389ds-rs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokio = { workspace = true, features = ["full"] }
+clap = { workspace = true, features = ["derive"] }
+serde = { workspace = true, features = ["derive"] }
+internal = { path = "../internal" }
