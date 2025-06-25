@@ -1,0 +1,15 @@
+[Unit]
+Description=Rust based haproxy healthcheck for 389ds
+Wants=dirsrv@default.service
+After=dirsrv@default.service
+ConditionPathExists=/usr/bin/haproxy-389ds-rs
+
+[Service]
+User=exporter-389ds-rs
+Group=root
+ExecStart=/usr/bin/haproxy-389ds-rs -c /etc/o11y-389ds-rs/default-haproxy.toml
+
+[Install]
+WantedBy=multi-user.target
+
+# vim: ft=systemd

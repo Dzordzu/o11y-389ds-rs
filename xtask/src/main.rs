@@ -148,6 +148,36 @@ fn exporter_389ds_rpm(config: &GeneralConfig) -> Result<()> {
     Ok(())
 }
 
+fn haproxy_389ds_rpm(config: &GeneralConfig) -> Result<()> {
+    let root_dir = get_project_root()?;
+    let misc_path = root_dir.join(MISC_DIR);
+    let cargo_toml = config.haproxy_project();
+
+    let rpm_builder = xtask_toolkit::package_rpm::Package::new(cargo_toml.clone())
+        .with_binary_src_archname(MUSL_DIR)
+        .with_user("haproxy-389ds-rs".to_string())
+        .with_systemd_unit(misc_path.join("haproxy-389ds-rs.service"))
+        .expect("Could not find systemd unit file")
+        .builder()?
+        .with_file(
+            misc_path.join("haproxy.sudoers"),
+            rpm::FileOptions::new("/etc/sudoers.d/haproxy-389ds-rs")
+                .mode(rpm::FileMode::regular(0o440))
+                .user("root"),
+        )?
+        .with_file(
+            misc_path.join("haproxy-389ds-rs.minimal.toml"),
+            rpm::FileOptions::new("/etc/o11y-389ds-rs/default-haproxy.toml")
+                .is_config_noreplace()
+                .mode(rpm::FileMode::regular(0o600))
+                .user("haproxy-389ds-rs"),
+        )?;
+
+    common_rpm_build(config, cargo_toml, rpm_builder)?;
+
+    Ok(())
+}
+
 fn copy_binaries(config: &GeneralConfig) -> Result<()> {
     for binary_name in &config.binaries {
         let dist = config.targz_path(
@@ -268,7 +298,7 @@ fn compress_grafana_dashboards(config: &GeneralConfig) -> Result<()> {
 }
 
 /// Check if the tag already exists
-const BINARIES: &[&str] = &["nagios-389ds-rs", "exporter-389ds-rs"];
+const BINARIES: &[&str] = &["nagios-389ds-rs", "exporter-389ds-rs", "haproxy-389ds-rs"];
 const OTHER_PROJECTS: &[&str] = &["grafana-389ds-rs"];
 
 pub struct GeneralConfig {
@@ -326,6 +356,13 @@ impl GeneralConfig {
             .expect("nagios-389ds-rs not found")
     }
 
+    pub fn haproxy_project(&self) -> &CargoToml {
+        self.projects
+            .iter()
+            .find(|x| x.name().is_some_and(|x| x == "haproxy-389ds-rs"))
+            .expect("haproxy-389ds-rs not found")
+    }
+
     pub fn targz_path(&self, name: &str) -> PathBuf {
         self.dist_files_dir
             .join(format!("{}.{}.tar.gz", name, std::env::consts::ARCH))
@@ -353,6 +390,10 @@ fn main() -> Result<()> {
             exporter_389ds_rpm(&general_config)
                 .inspect_err(|_| println!("Failed to package exporter"))
                 .inspect(|_| println!("Finished packaging exporter"))?;
+
+            haproxy_389ds_rpm(&general_config)
+                .inspect_err(|_| println!("Failed to package haproxy"))
+                .inspect(|_| println!("Finished packaging haproxy"))?;
 
             copy_binaries(&general_config)
                 .inspect_err(|_| println!("Failed to copy binaries"))

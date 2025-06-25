@@ -2,6 +2,7 @@
 
 ![Exporter 389ds version](https://img.shields.io/github/v/tag/dzordzu/o11y-389ds-rs?filter=exporter*\&label=version)
 ![Nagios 389ds version](https://img.shields.io/github/v/tag/dzordzu/o11y-389ds-rs?filter=nagios*\&label=version)
+![Haproxy 389ds version](https://img.shields.io/github/v/tag/dzordzu/o11y-389ds-rs?filter=haproxy*\&label=version)
 ![GitHub last commit (branch)](https://img.shields.io/github/last-commit/Dzordzu/o11y-389ds-rs/master)
 ![GitHub Release Date](https://img.shields.io/github/release-date/dzordzu/o11y-389ds-rs)
 

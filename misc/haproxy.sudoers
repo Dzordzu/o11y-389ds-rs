@@ -1,0 +1,4 @@
+## Access for exporter user to dsctl command
+haproxy-389ds-rs ALL=(root) NOPASSWD: /usr/sbin/dsctl
+
+# vim: ft=sudoers
