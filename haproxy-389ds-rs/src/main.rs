@@ -1,3 +1,7 @@
+pub mod haproxy;
+pub mod ldap_health;
+pub mod web;
+
 use clap::{ArgGroup, Parser};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;

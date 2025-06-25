@@ -150,6 +150,7 @@ unless stated otherwise.
 
 * Primitive types: `<string>`, `<int>`, `<bool>`
 * Arrays/Vectors of type `SType`: `<[Stype]>`
+* Maps with keys `KType` and values `VType`: `<map[KType, VType]>`
 * Required field of type `RType`: `:<RType:required>`
 * Variant `X` of the enum `E`: `<E::X`>
 * Default value of the type `T`: `T::default`
@@ -157,16 +158,16 @@ unless stated otherwise.
 #### Definition
 
 ```
-ldap_uri = <string>                             # default: ldap://localhost
-default_base = <string>                         # default: (auto-detected)
-verify_certs = <bool>                           # default: true
-page_size = <int>                               # default: 999
+ldap_uri = <string>                                   # default: ldap://localhost
+default_base = <string>                               # default: (auto-detected)
+verify_certs = <bool>                                 # default: true
+page_size = <int>                                     # default: 999
 
-bind = <BIND>                                   # default: None
-scrapers = <SCRAPERS>                           # default: SCRAPERS::default
+bind = <BIND>                                         # default: None
+scrapers = <SCRAPERS>                                 # default: SCRAPERS::default
 
-haproxy = <HAPROXY>                             # default: HAPROXY::default
-exporter = <EXPORTER>                           # default: EXPORTER::default
+haproxy = <HAPROXY>                                   # default: HAPROXY::default
+exporter = <EXPORTER>                                 # default: EXPORTER::default
 ```
 
 **\<BIND> type**
@@ -179,15 +180,15 @@ pass = <string:required>
 **\<SCRAPERS> type**
 
 ```
-dsctl = <DSCTL>                                 # default: DSCTL::default
-query = <[QUERY]>                               # default: []
+dsctl = <DSCTL>                                       # default: DSCTL::default
+query = <[QUERY]>                                     # default: []
 ```
 
 **\<DSCTL> type**
 
 ```
-instance = <string>                             # default: localhost
-timeout_seconds = <int>                         # default: 10
+instance = <string>                                   # default: localhost
+timeout_seconds = <int>                               # default: 10
 ```
 
 **\<QUERY> type**
@@ -195,43 +196,43 @@ timeout_seconds = <int>                         # default: 10
 ```
 name = <string:required>
 filter = <string:required>
-max_entries = <int>                             # default: (all possible entries)
+max_entries = <int>                                   # default: (all possible entries)
 
-attrs = <[string]>                              # default: (all attributes)
+attrs = <[string]>                                    # default: (all attributes)
 
 # ---------------------------
 # Overrides for main ldap config
-verify_certs = <bool>                           # default: None
-uri = <string>                                  # default: None
-page_size = <int>                               # default: None
-default_base = <string>                         # default: None
-bind = <BIND>                                   # default: None
+verify_certs = <bool>                                 # default: None
+uri = <string>                                        # default: None
+page_size = <int>                                     # default: None
+default_base = <string>                               # default: None
+bind = <BIND>                                         # default: None
 # ---------------------------
 ```
 
 **\<HAPROXY> type**
 
 ```
-expose_port = <int>                             # default: 9966
-expose_address = <string>                       # default: 0.0.0.0
-query = <[HAPROXY_QUERY]>                       # default: []
-scrape_flags = <[HAPROXY_SCRAPE_FLAGS]>         # default: []
-scrape_interval_seconds = <SCRAPE_INTERVALS>    # default: SCRAPE_INTERVALS::default>
+expose_port = <int>                                   # default: 9966
+expose_address = <string>                             # default: 0.0.0.0
+query = <[HAPROXY_QUERY]>                             # default: []
+scrape_flags = <map[<string>, HAPROXY_SCRAPE_FLAGS]>  # default: []
+scrape_interval_seconds = <SCRAPE_INTERVALS>          # default: SCRAPE_INTERVALS::default>
 ```
 
 
 **\<HAPROXY\_SCRAPE\_FLAGS> type**
 
 ```
-replication_status = <bool>                     # default: true
-ldap_monitoring = <bool>                        # default: true
+replication_status = <bool>                           # default: true
+ldap_monitoring = <bool>                              # default: true
 ```
 
 **\<SCRAPE\_INTERVALS> type**
 
 ```
-replication_status = <int>                      # default: 30
-ldap_monitoring = <int>                         # default: 30
+replication_status = <int>                            # default: 30
+ldap_monitoring = <int>                               # default: 30
 ```
 
 **\<HAPROXY\_QUERY> type**
@@ -247,9 +248,9 @@ Enum. One of the following:
 ```
 name = <string:required>
 action = "count-entries"
-greater_than = <int>                            # default: 0
-less_than = <int>                               # default: 0
-scrape_interval_seconds = <int>                 # default: 30
+greater_than = <int>                                  # default: 0
+less_than = <int>                                     # default: 0
+scrape_interval_seconds = <int>                       # default: 30
 ```
 
 **\<HAPROXY\_QUERY::COUNT\_ATTRS> type**
@@ -257,9 +258,9 @@ scrape_interval_seconds = <int>                 # default: 30
 ```
 name = <string:required>
 action = "count-attrs"
-greater_than = <int>                            # default: 0
-less_than = <int>                               # default: 0
-scrape_interval_seconds = <int>                 # default: 5
+greater_than = <int>                                  # default: 0
+less_than = <int>                                     # default: 0
+scrape_interval_seconds = <int>                       # default: 5
 ```
 
 **\<HAPROXY\_QUERY::SUCCESS> type**
@@ -267,34 +268,34 @@ scrape_interval_seconds = <int>                 # default: 5
 ```
 name = <string:required>
 action = "success"
-scrape_interval_seconds = <int>                 # default: 5
+scrape_interval_seconds = <int>                       # default: 5
 ```
 
 **\<EXPORTER> type**
 
 ```
-expose_port = <int>                             # default: 9100
-expose_address = <string>                       # default: 0.0.0.0
-scrape_flags = <EXPORTER\_SCRAPE_FLAGS>         # default: EXPORTER_SCRAPE_FLAGS::default
-query = <[EXPORTER_QUERY]>                      # default: []
-scrape_interval_seconds = <int>                 # default: 5
+expose_port = <int>                                   # default: 9100
+expose_address = <string>                             # default: 0.0.0.0
+scrape_flags = <EXPORTER\_SCRAPE_FLAGS>               # default: EXPORTER_SCRAPE_FLAGS::default
+query = <[EXPORTER_QUERY]>                            # default: []
+scrape_interval_seconds = <int>                       # default: 5
 ```
 
 **\<EXPORTER\_SCRAPE\_FLAGS> type**
 
 ```
-replication_status = <bool>                     # default: true
-ldap_monitoring = <bool>                        # default: true
-gids_info = <bool>                              # default: false
-dsctl = <bool>                                  # default: false
+replication_status = <bool>                           # default: true
+ldap_monitoring = <bool>                              # default: true
+gids_info = <bool>                                    # default: false
+dsctl = <bool>                                        # default: false
 ```
 
 **\<EXPORTER\_QUERY> type**
 
 ```
 name = <string:required>
-scrape_interval_seconds = <int>                 # default: 5
-max_entries = <int>                             # default: (all possible entries)
+scrape_interval_seconds = <int>                       # default: 5
+max_entries = <int>                                   # default: (all possible entries)
 ```
 
 ## Building and packaging

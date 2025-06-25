@@ -8,3 +8,4 @@ tokio = { workspace = true, features = ["full"] }
 clap = { workspace = true, features = ["derive"] }
 serde = { workspace = true, features = ["derive"] }
 internal = { path = "../internal" }
+actix-web = "4.11.0"

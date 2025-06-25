@@ -52,19 +52,19 @@ expose_address = "0.0.0.0"
    replication_status = 30
    ldap_monitoring = 5
 
-   [[haproxy.query]]
+   [haproxy.query.users_present]
    name = "list-users"
    action = "count-entries"
    greater_than = 0
    scrape_interval_seconds = 30
 
-   [[haproxy.query]]
+   [haproxy.query.groups_present]
    name = "list-groups"
    action = "count-entries"
-   greater_than = 0
+   greater_than = 200
    scrape_interval_seconds = 2
 
-   [[haproxy.query]]
+   [haproxy.query.memberofs_present]
    name = "list-users"
    action = "count-attrs"
    attr = "memberOf"

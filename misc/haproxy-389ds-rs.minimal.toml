@@ -6,21 +6,21 @@ expose_address = "0.0.0.0"
    replication_status = true
    ldap_monitoring = true
 
-   [[haproxy.query]]
+   [haproxy.query.users_present]
    name = "list-posix-users"
    action = "count-entries"
    greater_than = 0
    scrape_interval_seconds = 10
    max_entries = 1
 
-   [[haproxy.query]]
+   [haproxy.query.memberofs_present]
    name = "list-posix-users"
    action = "count-attrs"
    attr = "memberOf"
    greater_than = 0
    scrape_interval_seconds = 20
 
-   [[haproxy.query]]
+   [haproxy.query.groups_present]
    name = "list-posix-groups"
    action = "count-entries"
    greater_than = 0
