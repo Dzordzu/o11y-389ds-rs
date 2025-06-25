@@ -17,6 +17,7 @@ pass = "bm90IHNvIGVhc3kh"
    name = "list-users"
    filter = "(&(objectClass=posixAccount)(objectClass=inetOrgPerson))"
    attrs = ["memberof"]
+   max_entries = 10000                                                 # we can limit the maximum number of returned entries
 
    [[scrapers.query]]
    name = "list-groups"
@@ -36,6 +37,7 @@ scrape_interval_seconds = 5
    [[exporter.query]]
    name = "list-users"
    scrape_interval_seconds = 60
+   max_entries = 2137
 
 
 [haproxy]

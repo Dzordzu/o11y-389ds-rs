@@ -18,7 +18,7 @@ rustix = { version = "0.38.44", features = ["system"] }
 tar = "0.4.44"
 flate2 = "1.1.0"
 regex = "1.11.1"
-xtask-toolkit = { git = "https://github.com/dzordzu/xtask-toolkit", features = [
+xtask-toolkit = { version = "0.1.8", features = [
    "git-precommit",
    "targz",
    "gh-cli",

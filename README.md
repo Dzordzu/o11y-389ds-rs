@@ -269,6 +269,7 @@ query = <[EXPORTER_QUERY]>                      # default: []
 ```toml
 name = <string:required>
 scrape_interval_seconds = <int>                 # default: 5
+max_entries = <int>                             # default: (all possible entries)
 ```
 
 ## Building and packaging

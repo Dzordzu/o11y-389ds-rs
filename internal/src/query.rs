@@ -14,6 +14,7 @@ use crate::Bind;
 pub struct CustomQuery {
     pub name: String,
     pub filter: String,
+    pub max_entries: Option<i32>,
 
     #[serde(default)]
     pub attrs: Vec<String>,
@@ -50,6 +51,7 @@ impl CustomQuery {
         Self {
             name,
             filter,
+            max_entries: None,
             attrs: Vec::new(),
             bind: None,
             uri: None,
@@ -90,6 +92,10 @@ impl CustomQuery {
             Box::new(EntriesOnly::new()),
             Box::new(PagedResults::new(self.ldap_config.page_size)),
         ];
+
+        if let Some(max_entries) = self.max_entries {
+            ldap.with_search_options(ldap3::SearchOptions::new().sizelimit(max_entries));
+        }
 
         let mut search = ldap
             .streaming_search_with(

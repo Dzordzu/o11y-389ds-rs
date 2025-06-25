@@ -945,7 +945,7 @@ dependencies = [
 
 [[package]]
 name = "exporter-389ds-rs"
-version = "0.1.10"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1248,7 +1248,7 @@ dependencies = [
 
 [[package]]
 name = "haproxy-389ds-rs"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "clap",
  "internal",
@@ -1592,7 +1592,7 @@ dependencies = [
 
 [[package]]
 name = "internal"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1916,7 +1916,7 @@ dependencies = [
 
 [[package]]
 name = "nagios-389ds-rs"
-version = "0.1.6"
+version = "0.2.0"
 dependencies = [
  "anyhow",
  "clap",
@@ -3933,8 +3933,9 @@ dependencies = [
 
 [[package]]
 name = "xtask-toolkit"
-version = "0.1.3"
-source = "git+https://github.com/dzordzu/xtask-toolkit#d32f6862a214bb37d2818853a5cd45f9a395ce22"
+version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8618f8797f2a37b258cb9c28a79e80e5ba8a9f852d0d41e891b131565e6b9be4"
 dependencies = [
  "chrono",
  "flate2",

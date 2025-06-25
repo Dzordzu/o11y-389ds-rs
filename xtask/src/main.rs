@@ -125,6 +125,7 @@ fn exporter_389ds_rpm(config: &GeneralConfig) -> Result<()> {
 
     let rpm_builder = xtask_toolkit::package_rpm::Package::new(cargo_toml.clone())
         .with_binary_src_archname(MUSL_DIR)
+        .with_user("exporter-389ds-rs".to_string())
         .with_systemd_unit(misc_path.join("exporter-389ds-rs.service"))
         .expect("Could not find systemd unit file")
         .builder()?

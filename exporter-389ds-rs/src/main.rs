@@ -100,6 +100,9 @@ pub struct ExporterQuery {
 
     #[serde(default = "default_scrape_interval_seconds")]
     scrape_interval_seconds: u64,
+
+    #[serde(default)]
+    max_entries: Option<i32>,
 }
 
 #[derive(Deserialize, Debug, Clone)]
@@ -117,7 +120,7 @@ pub struct ExporterConfig {
     pub scrape_flags: ScrapeFlags,
 
     #[serde(default)]
-    pub queries: Vec<ExporterQuery>,
+    pub query: Vec<ExporterQuery>,
 }
 
 impl Default for ExporterConfig {
@@ -127,7 +130,7 @@ impl Default for ExporterConfig {
             expose_address: default_expose_address(),
             scrape_interval_seconds: default_scrape_interval_seconds(),
             scrape_flags: Default::default(),
-            queries: Default::default(),
+            query: Default::default(),
         }
     }
 }
@@ -238,7 +241,7 @@ async fn setup_query_checks(
     config: Config,
     tracker: &TaskTracker,
 ) -> Result<()> {
-    let queries = config.exporter.queries.iter().filter_map(|exporter_query| {
+    let queries = config.exporter.query.iter().filter_map(|exporter_query| {
         if let Some(query_def) = config
             .common
             .scrapers
@@ -261,6 +264,10 @@ async fn setup_query_checks(
     for mut query in queries {
         let cancel_token = cancel_token.clone();
         let config = config.clone();
+
+        if let Some(max_entries) = query.0.max_entries {
+            query.1.max_entries = Some(max_entries);
+        }
 
         tracker.spawn(async move {
             query.1.ldap_config = config.common.ldap_config.clone();
