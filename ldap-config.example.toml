@@ -42,7 +42,7 @@ scrape_interval_seconds = 5
 
 [haproxy]
 expose_port = 9966
-expose_address = "127.0.0.1"
+expose_address = "0.0.0.0"
 
    [haproxy.scrape_flags]
    replication_status = true

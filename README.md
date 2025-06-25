@@ -17,6 +17,7 @@
     * [Supported features](#supported-features)
     * [Grafana dashboards](#grafana-dashboards)
     * [Exporter usage](#exporter-usage)
+    * [Exporter result](#exporter-result)
     * [Nagios plugin usage](#nagios-plugin-usage)
     * [Configuration](#configuration)
         * [Notation](#notation)
@@ -52,10 +53,11 @@ This repository contains the following projects
 
 * `exporter-389ds-rs`: Prometheus exporter for the 389ds
 * `nagios-389ds-rs`: Nagios plugin for the 389ds.
+* `haproxy-389ds-rs`: HAProxy healthcheck plugin for the 389ds
 
 ### Supported features
 
-* `cn=monitor` based checks and metrics
+* `cn=monitor` based checks and metrics (called `ldap-monitor` and `ldap_monitoring`)
 * connection metrics with labeled information about connection DN and IP
   address
 * replication based checks and metrics
@@ -95,6 +97,10 @@ Options:
   -h, --help
           Print help (see more with '--help')
 ```
+
+### Exporter result
+
+See [exporter.result.txt](https://raw.githubusercontent.com/dzordzu/o11y-389ds-rs/master/exporter.result.txt)
 
 ### Nagios plugin usage
 
@@ -137,6 +143,8 @@ deployments, tools can be configured by TOML file or CLI options. Example file
 can be found int the root of the repository. Every key below is ***optional***,
 unless stated otherwise.
 
+**TLDR;** See example [ldap-config.example.toml](https://raw.githubusercontent.com/dzordzu/o11y-389ds-rs/master/ldap-config.example.toml)
+
 #### Notation
 
 * Primitive types: `<string>`, `<int>`, `<bool>`
@@ -147,11 +155,10 @@ unless stated otherwise.
 
 #### Definition
 
-```toml
+```
 ldap_uri = <string>                             # default: ldap://localhost
 default_base = <string>                         # default: (auto-detected)
 verify_certs = <bool>                           # default: true
-scrape_interval_seconds = <int>                 # default: 5
 page_size = <int>                               # default: 999
 
 bind = <BIND>                                   # default: None
@@ -163,28 +170,28 @@ exporter = <EXPORTER>                           # default: EXPORTER::default
 
 **\<BIND> type**
 
-```toml
+```
 dn = <string:required>
 pass = <string:required>
 ```
 
 **\<SCRAPERS> type**
 
-```toml
+```
 dsctl = <DSCTL>                                 # default: DSCTL::default
 query = <[QUERY]>                               # default: []
 ```
 
 **\<DSCTL> type**
 
-```toml
+```
 instance = <string>                             # default: localhost
 timeout_seconds = <int>                         # default: 10
 ```
 
 **\<QUERY> type**
 
-```toml
+```
 name = <string:required>
 filter = <string:required>
 max_entries = <int>                             # default: (all possible entries)
@@ -201,22 +208,29 @@ bind = <BIND>                                   # default: None
 # ---------------------------
 ```
 
-**\<SCRAPE\_FLAGS> type**
-
-```toml
-replication_status = <bool>                     # default: true
-ldap_monitoring = <bool>                        # default: true
-gids_info = <bool>                              # default: false
-dsctl = <bool>                                  # default: false
-```
-
 **\<HAPROXY> type**
 
-```toml
-expose_port <int>                               # default: 9966
+```
+expose_port = <int>                             # default: 9966
 expose_address = <string>                       # default: 0.0.0.0
 query = <[HAPROXY_QUERY]>                       # default: []
-scrape_flags = <[SCRAPE_FLAGS]>                 # default: []
+scrape_flags = <[HAPROXY_SCRAPE_FLAGS]>         # default: []
+scrape_interval_seconds = <SCRAPE_INTERVALS>    # default: SCRAPE_INTERVALS::default>
+```
+
+
+**\<HAPROXY\_SCRAPE\_FLAGS> type**
+
+```
+replication_status = <bool>                     # default: true
+ldap_monitoring = <bool>                        # default: true
+```
+
+**\<SCRAPE\_INTERVALS> type**
+
+```
+replication_status = <int>                      # default: 30
+ldap_monitoring = <int>                         # default: 30
 ```
 
 **\<HAPROXY\_QUERY> type**
@@ -229,7 +243,7 @@ Enum. One of the following:
 
 **\<HAPROXY\_QUERY::COUNT\_ENTRIES> type**
 
-```toml
+```
 name = <string:required>
 action = "count-entries"
 greater_than = <int>                            # default: 0
@@ -239,7 +253,7 @@ scrape_interval_seconds = <int>                 # default: 30
 
 **\<HAPROXY\_QUERY::COUNT\_ATTRS> type**
 
-```toml
+```
 name = <string:required>
 action = "count-attrs"
 greater_than = <int>                            # default: 0
@@ -249,7 +263,7 @@ scrape_interval_seconds = <int>                 # default: 5
 
 **\<HAPROXY\_QUERY::SUCCESS> type**
 
-```toml
+```
 name = <string:required>
 action = "success"
 scrape_interval_seconds = <int>                 # default: 5
@@ -257,16 +271,26 @@ scrape_interval_seconds = <int>                 # default: 5
 
 **\<EXPORTER> type**
 
-```toml
-expose_port <int>                               # default: 9100
+```
+expose_port = <int>                             # default: 9100
 expose_address = <string>                       # default: 0.0.0.0
-scrape_flags = <SCRAPE_FLAGS>                   # default: SCRAPE_FLAGS::default
+scrape_flags = <EXPORTER\_SCRAPE_FLAGS>         # default: EXPORTER_SCRAPE_FLAGS::default
 query = <[EXPORTER_QUERY]>                      # default: []
+scrape_interval_seconds = <int>                 # default: 5
+```
+
+**\<EXPORTER\_SCRAPE\_FLAGS> type**
+
+```
+replication_status = <bool>                     # default: true
+ldap_monitoring = <bool>                        # default: true
+gids_info = <bool>                              # default: false
+dsctl = <bool>                                  # default: false
 ```
 
 **\<EXPORTER\_QUERY> type**
 
-```toml
+```
 name = <string:required>
 scrape_interval_seconds = <int>                 # default: 5
 max_entries = <int>                             # default: (all possible entries)
