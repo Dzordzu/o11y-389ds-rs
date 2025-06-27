@@ -1,10 +1,12 @@
-#[derive(Copy, Debug, Clone)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Copy, Debug, Clone, Serialize, Deserialize)]
 enum Maintenance {
     Ready,
     Maint,
 }
 
-#[derive(Copy, Debug, Clone)]
+#[derive(Copy, Debug, Clone, Serialize, Deserialize)]
 enum Status {
     Up,
     Down,
@@ -13,6 +15,7 @@ enum Status {
     Maintenance(Maintenance),
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Response {
     status: Status,
     pub maxxconn: Option<u64>,
@@ -94,14 +97,28 @@ impl Response {
             _ => "".to_string(),
         };
 
-        let maxconn_str = match self.maxxconn {
-            Some(maxxconn) => format!(" maxconn:{}", maxxconn),
-            None => "".to_string(),
+        let maxconn_str = if matches!(
+            self.status,
+            Status::Up | Status::Maintenance(Maintenance::Ready)
+        ) {
+            match self.maxxconn {
+                Some(maxxconn) => format!(" maxconn:{}", maxxconn),
+                None => "".to_string(),
+            }
+        } else {
+            String::default()
         };
 
-        let weight_str = match self.weight {
-            Some(weight) => format!(" weight:{}", weight),
-            None => "".to_string(),
+        let weight_str = if matches!(
+            self.status,
+            Status::Up | Status::Maintenance(Maintenance::Ready)
+        ) {
+            match self.weight {
+                Some(weight) => format!(" weight:{}%", weight),
+                None => "".to_string(),
+            }
+        } else {
+            String::default()
         };
 
         format!("{status_str}{weight_str}{maxconn_str}{reason_str}\n",)

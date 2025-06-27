@@ -1548,10 +1548,16 @@ name = "haproxy-389ds-rs"
 version = "0.2.0"
 dependencies = [
  "actix-web",
+ "anyhow",
  "clap",
  "internal",
  "serde",
+ "serde_json",
  "tokio",
+ "tokio-util",
+ "toml",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -4337,7 +4343,8 @@ dependencies = [
 [[package]]
 name = "xtask-toolkit"
 version = "0.1.12"
-source = "git+https://github.com/Dzordzu/xtask-toolkit#b233e25a8357f1850e0c2b2fdb51289605d8d70f"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5d56d8ff3eb0d5b43624e570315879c961148c925a379db02276e1f368e3f5e6"
 dependencies = [
  "chrono",
  "flate2",

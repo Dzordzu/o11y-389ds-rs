@@ -234,8 +234,9 @@ ldap_monitoring = <bool>                              # default: true
 **\<SCRAPE\_INTERVALS> type**
 
 ```
-replication_status = <int>                            # default: 30
-ldap_monitoring = <int>                               # default: 30
+replication_status = <int>                            # default: 5
+ldap_monitoring = <int>                               # default: 5
+systemd_status = <int>                                # default: 5
 ```
 
 **\<HAPROXY\_QUERY> type**

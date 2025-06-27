@@ -1,155 +1,220 @@
+pub mod cli;
+pub mod config;
 pub mod haproxy;
 pub mod ldap_health;
 pub mod web;
 
-use clap::{ArgGroup, Parser};
-use serde::{Deserialize, Serialize};
-use std::path::PathBuf;
+use anyhow::Result;
+use clap::Parser;
+use cli::{ArgFlag, Args};
+use config::Config;
+use internal::Bind;
+use ldap_health::Health;
+use std::sync::Arc;
+use tokio::{select, sync::Mutex};
+use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
-fn default_true() -> bool {
-    true
+pub struct AppStateBase {
+    pub health: Health,
+    pub config: config::Config,
+    pub current_reponse: haproxy::Response,
 }
 
-fn default_scrape_interval_seconds() -> u64 {
-    5
+impl AppStateBase {
+    pub fn new(config: config::Config) -> Self {
+        AppStateBase {
+            health: Health::new(),
+            current_reponse: haproxy::Response::new_up(),
+            config,
+        }
+    }
+
+    pub fn evaluate(&mut self) {
+        self.health.evaluate(&mut self.current_reponse);
+    }
 }
 
-fn default_expose_port() -> u16 {
-    6699
-}
+pub async fn accessibility_loop(
+    config: Config,
+    app_state: AppState,
+    cancel_token: CancellationToken,
+) {
+    tracing::info!("Starting 389ds accessibility checks");
 
-fn default_expose_address() -> String {
-    "0.0.0.0".to_string()
-}
+    loop {
+        if let Err(error) = check_ldap_connection(&config).await {
+            tracing::error!("Error: {}", error);
+            app_state.lock().await.health.status.is_reachable = false;
+        } else {
+            app_state.lock().await.health.status.is_reachable = true;
+        }
 
-#[derive(clap::ValueEnum, Debug, Clone)]
-pub enum ArgFlag {
-    /// Parse replication entries
-    Replication,
+        select! {
+            _ = tokio::time::sleep(tokio::time::Duration::from_secs(
+                config.haproxy.scrape_interval_seconds.ldap_accessibility,
+            )) => {
 
-    /// Parse monitoring entry
-    LdapMonitor,
-
-    /// Count unresolvable primary gids of posixUser
-    GidsInfo,
-
-    /// Run dsctl commands. For example dsctl healthcheck
-    Dsctl,
-}
-
-#[derive(Parser)]
-#[clap(group(ArgGroup::new("bind").requires_all(["binddn", "bindpass"]).multiple(true)))]
-pub struct Args {
-    /// Path to the TOML configuration file
-    #[clap(short, long)]
-    config: Option<PathBuf>,
-
-    /// LDAP paging setting
-    #[clap(short = 'P', long)]
-    page_size: Option<i32>,
-
-    /// Disable TLS cert verification
-    #[clap(short = 'C', long, default_value_t = false)]
-    skip_cert_verification: bool,
-
-    #[clap(short = 'a', long)]
-    expose_address: Option<String>,
-
-    #[clap(short = 'p', long)]
-    expose_port: Option<u16>,
-
-    #[clap(short = 'b', long)]
-    basedn: Option<String>,
-
-    #[clap(short = 'D', long)]
-    #[clap(group = "bind")]
-    binddn: Option<String>,
-
-    #[clap(short = 'w', long)]
-    #[clap(group = "bind")]
-    bindpass: Option<String>,
-
-    #[clap(short = 'H', long)]
-    host: Option<String>,
-
-    #[clap(short = 'I', long)]
-    scrape_interval_seconds: Option<u64>,
-
-    #[clap(short = 'e', long)]
-    #[clap(value_enum)]
-    enable_flags: Vec<ArgFlag>,
-
-    #[clap(short = 'd', long)]
-    #[clap(value_enum)]
-    disable_flags: Vec<ArgFlag>,
-}
-
-#[derive(Deserialize, Debug, Clone, Default)]
-pub struct Config {
-    #[serde(default)]
-    pub haproxy: HaproxyConfig,
-
-    #[serde(flatten)]
-    pub common: internal::config::CommonConfig,
-}
-
-#[derive(Deserialize, Debug, Clone)]
-pub struct HaproxyConfig {
-    #[serde(default = "default_expose_port")]
-    pub expose_port: u16,
-
-    #[serde(default = "default_expose_address")]
-    pub expose_address: String,
-
-    #[serde(default = "default_scrape_interval_seconds")]
-    pub scrape_interval_seconds: u64,
-
-    #[serde(default)]
-    pub scrape_flags: ScrapeFlags,
-}
-
-impl Default for HaproxyConfig {
-    fn default() -> Self {
-        Self {
-            expose_port: default_expose_port(),
-            expose_address: default_expose_address(),
-            scrape_interval_seconds: default_scrape_interval_seconds(),
-            scrape_flags: ScrapeFlags::default(),
+            },
+            _ = cancel_token.cancelled() => {
+                break
+            }
         }
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct ScrapeFlags {
-    #[serde(default = "default_true")]
-    /// Use cn=monitor to gather metrics
-    pub ldap_monitoring: bool,
+pub async fn systemd_status_loop(
+    config: Config,
+    app_state: AppState,
+    cancel_token: CancellationToken,
+) -> Result<()> {
+    tracing::info!("Starting systemd status checks");
 
-    #[serde(default = "default_true")]
-    /// Check replication status using ldapsearch
-    pub replication_status: bool,
+    loop {
+        let instance = config.common.scrapers.dsctl.instance_name.clone();
+        let timeout_seconds = config.common.scrapers.dsctl.timeout_seconds;
+        let cli_config = internal::cli::CommandConfig::new(timeout_seconds, instance);
 
-    #[serde(default)]
-    /// Count unresolvable primary gids of posixUser; count low number gids
-    pub gids_info: bool,
+        match cli_config.systemd_running().await {
+            Err(error) => {
+                tracing::error!("Error: {}", error);
+                app_state.lock().await.health.status.is_systemd_running = false;
+            }
+            Ok(x) => {
+                if x {
+                    app_state.lock().await.health.status.is_systemd_running = true;
+                } else {
+                    tracing::error!("Systemd is not running");
+                    app_state.lock().await.health.status.is_systemd_running = false;
+                }
+            }
+        }
 
-    #[serde(default)]
-    /// Run dsctl healthcheck
-    pub dsctl: bool,
-}
+        select! {
+            _ = tokio::time::sleep(tokio::time::Duration::from_secs(
+                config.haproxy.scrape_interval_seconds.ldap_accessibility,
+            )) => {
 
-impl Default for ScrapeFlags {
-    fn default() -> Self {
-        Self {
-            ldap_monitoring: true,
-            replication_status: true,
-            gids_info: false,
-            dsctl: false,
+            },
+            _ = cancel_token.cancelled() => {
+                break
+            }
         }
     }
+
+    Ok(())
+}
+
+pub type AppState = Arc<Mutex<AppStateBase>>;
+
+pub async fn check_ldap_connection(config: &config::Config) -> Result<()> {
+    config.common.ldap_config.connect().await?;
+    Ok(())
 }
 
 #[tokio::main]
-async fn main() {
-    let _args = Args::parse();
+async fn main() -> Result<()> {
+    let args = Args::parse();
+
+    tracing_subscriber::fmt::init();
+
+    let mut config: Config = if let Some(conf) = &args.config {
+        let file = String::from_utf8(std::fs::read(conf)?)?;
+        toml::from_str(&file)?
+    } else {
+        Default::default()
+    };
+
+    if let Some(page_size) = args.page_size {
+        config.common.ldap_config.page_size = page_size;
+    }
+
+    if let Some(dn) = args.binddn {
+        let pass = args.bindpass.unwrap();
+        let bind = Bind { dn, pass };
+        config.common.ldap_config.bind = Some(bind);
+    }
+
+    if let Some(host) = args.host {
+        config.common.ldap_config.uri = host;
+    }
+
+    if let Some(expose_address) = args.expose_address {
+        config.haproxy.expose_address = expose_address;
+    }
+
+    if let Some(expose_port) = args.expose_port {
+        config.haproxy.expose_port = expose_port;
+    }
+
+    if let Some(basedn) = args.basedn {
+        config.common.ldap_config.default_base = basedn;
+    }
+
+    if args.skip_cert_verification {
+        config.common.ldap_config.verify_certs = false;
+    }
+
+    if config.common.ldap_config.default_base.is_empty() {
+        config.common.ldap_config.detect_base().await?;
+        tracing::info!("Set base to the {}", config.common.ldap_config.default_base);
+    }
+
+    for disable_flag in args.disable_flags {
+        match disable_flag {
+            ArgFlag::Replication => config.haproxy.scrape_flags.replication_status = false,
+            ArgFlag::LdapMonitor => config.haproxy.scrape_flags.ldap_monitoring = false,
+        }
+    }
+
+    for enable_flags in args.enable_flags {
+        match enable_flags {
+            ArgFlag::Replication => config.haproxy.scrape_flags.replication_status = true,
+            ArgFlag::LdapMonitor => config.haproxy.scrape_flags.ldap_monitoring = true,
+        }
+    }
+
+    let tracker = TaskTracker::new();
+    let cancel_token_orig = CancellationToken::new();
+    let app_state: AppState = Arc::new(Mutex::new(AppStateBase::new(config.clone())));
+
+    let app_state_clone = app_state.clone();
+    let config_clone = config.clone();
+    tracker.spawn(async move {
+        tracing::info!("Starting webserver");
+        web::webserver(
+            config_clone.haproxy.expose_address,
+            config_clone.haproxy.expose_port,
+            app_state_clone,
+        )
+        .await
+    });
+
+    let app_state_clone = app_state.clone();
+    let config_clone = config.clone();
+    let cancel_token = cancel_token_orig.clone();
+    tracker.spawn(
+        async move { accessibility_loop(config_clone, app_state_clone, cancel_token).await },
+    );
+
+    let app_state_clone = app_state.clone();
+    let config_clone = config.clone();
+    let cancel_token = cancel_token_orig.clone();
+    if config.haproxy.scrape_flags.systemd_status {
+        tracker.spawn(async move {
+            systemd_status_loop(config_clone, app_state_clone, cancel_token).await
+        });
+    } else {
+        tracing::info!("Skipping systemd status checks");
+        app_state_clone
+            .lock()
+            .await
+            .health
+            .status
+            .is_systemd_running = true;
+    }
+
+    tracker.close();
+    tracker.wait().await;
+
+    Ok(())
 }
