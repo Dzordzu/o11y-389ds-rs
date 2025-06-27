@@ -1,13 +1,12 @@
-use std::{ffi::OsString, path::PathBuf};
+use std::path::PathBuf;
 use xtask_toolkit::cargo::{get_project_root, CargoToml};
 use xtask_toolkit::checksums::ChecksumsToFile;
-
-use chrono::DateTime;
 
 use anyhow::{anyhow, Result};
 use clap::{Parser, Subcommand};
 use xshell::{cmd, Shell};
 
+const COMMON_GROUP: &str = "o11y-389ds-rs";
 const MUSL_DIR: &str = "x86_64-unknown-linux-musl";
 const MISC_DIR: &str = "misc";
 
@@ -46,37 +45,6 @@ pub struct Package {
     pub name: String,
     pub license: String,
     pub description: String,
-}
-
-pub fn common_rpm(pkg: &Package) -> Result<rpm::PackageBuilder> {
-    let sh = Shell::new()?;
-    let last_commit_date = DateTime::from_timestamp(
-        cmd!(sh, "git show --no-patch --format=%ct HEAD")
-            .read()?
-            .parse()?,
-        0,
-    )
-    .ok_or(anyhow!("Could not use detected timestamp"))?;
-
-    use std::os::unix::ffi::OsStringExt;
-    let buildhost = OsString::from_vec(rustix::system::uname().nodename().to_bytes().to_vec());
-
-    Ok(rpm::PackageBuilder::new(
-        &pkg.name,
-        &pkg.version,
-        &pkg.license,
-        std::env::consts::ARCH,
-        &pkg.description,
-    )
-    .source_date(last_commit_date)
-    .vendor("dzordzu")
-    .build_host(
-        buildhost
-            .to_str()
-            .ok_or(anyhow!("Could not detect hostname"))?,
-    )
-    .compression(rpm::CompressionType::Gzip)
-    .url("https://github.com/dzordzu/o11y-389ds-rs"))
 }
 
 fn common_rpm_build(
@@ -126,6 +94,7 @@ fn exporter_389ds_rpm(config: &GeneralConfig) -> Result<()> {
     let rpm_builder = xtask_toolkit::package_rpm::Package::new(cargo_toml.clone())
         .with_binary_src_archname(MUSL_DIR)
         .with_user("exporter-389ds-rs".to_string())
+        .with_group(COMMON_GROUP)
         .with_systemd_unit(misc_path.join("exporter-389ds-rs.service"))
         .expect("Could not find systemd unit file")
         .builder()?
@@ -137,7 +106,7 @@ fn exporter_389ds_rpm(config: &GeneralConfig) -> Result<()> {
         )?
         .with_file(
             misc_path.join("exporter-389ds-rs.minimal.toml"),
-            rpm::FileOptions::new("/etc/o11y-389ds-rs/default.toml")
+            rpm::FileOptions::new("/etc/o11y-389ds-rs/exporter.example.toml")
                 .is_config_noreplace()
                 .mode(rpm::FileMode::regular(0o600))
                 .user("exporter-389ds-rs"),
@@ -155,7 +124,8 @@ fn haproxy_389ds_rpm(config: &GeneralConfig) -> Result<()> {
 
     let rpm_builder = xtask_toolkit::package_rpm::Package::new(cargo_toml.clone())
         .with_binary_src_archname(MUSL_DIR)
-        .with_user("haproxy-389ds-rs".to_string())
+        .with_user("haproxy-389ds-rs")
+        .with_group(COMMON_GROUP)
         .with_systemd_unit(misc_path.join("haproxy-389ds-rs.service"))
         .expect("Could not find systemd unit file")
         .builder()?
@@ -167,10 +137,34 @@ fn haproxy_389ds_rpm(config: &GeneralConfig) -> Result<()> {
         )?
         .with_file(
             misc_path.join("haproxy-389ds-rs.minimal.toml"),
-            rpm::FileOptions::new("/etc/o11y-389ds-rs/default-haproxy.toml")
+            rpm::FileOptions::new("/etc/o11y-389ds-rs/haproxy.example.toml")
                 .is_config_noreplace()
                 .mode(rpm::FileMode::regular(0o600))
                 .user("haproxy-389ds-rs"),
+        )?;
+
+    common_rpm_build(config, cargo_toml, rpm_builder)?;
+
+    Ok(())
+}
+
+fn config_389ds_rpm(config: &GeneralConfig) -> Result<()> {
+    let root_dir = get_project_root()?;
+    let misc_path = root_dir.join(MISC_DIR);
+    let cargo_toml = config.config_project();
+
+    let rpm_builder = xtask_toolkit::package_rpm::Package::new(cargo_toml.clone())
+        .dont_include_binary()
+        .keep_file_after_removal("/etc/o11y-389ds-rs/default.toml")
+        .with_group(COMMON_GROUP)
+        .builder()?
+        .with_file(
+            misc_path.join("default.toml"),
+            rpm::FileOptions::new("/etc/o11y-389ds-rs/default.toml")
+                .is_config_noreplace()
+                .mode(rpm::FileMode::regular(0o640))
+                .user("root")
+                .group("o11y-389ds-rs"),
         )?;
 
     common_rpm_build(config, cargo_toml, rpm_builder)?;
@@ -299,7 +293,7 @@ fn compress_grafana_dashboards(config: &GeneralConfig) -> Result<()> {
 
 /// Check if the tag already exists
 const BINARIES: &[&str] = &["nagios-389ds-rs", "exporter-389ds-rs", "haproxy-389ds-rs"];
-const OTHER_PROJECTS: &[&str] = &["grafana-389ds-rs"];
+const OTHER_PROJECTS: &[&str] = &["grafana-389ds-rs", "config-389ds-rs"];
 
 pub struct GeneralConfig {
     pub projects: Vec<CargoToml>,
@@ -333,6 +327,13 @@ impl GeneralConfig {
             project_root,
             binaries: BINARIES.iter().map(|x| x.to_string()).collect(),
         }
+    }
+
+    pub fn config_project(&self) -> &CargoToml {
+        self.projects
+            .iter()
+            .find(|x| x.name().is_some_and(|x| x == "config-389ds-rs"))
+            .expect("o11y-389ds-rs not found")
     }
 
     pub fn exporter_project(&self) -> &CargoToml {
@@ -382,6 +383,10 @@ fn main() -> Result<()> {
                 .build()
                 .inspect_err(|_| println!("Failed to build for musl"))
                 .inspect(|_| println!("Built for musl"))?;
+
+            config_389ds_rpm(&general_config)
+                .inspect_err(|_| println!("Failed to package config"))
+                .inspect(|_| println!("Finished packaging config"))?;
 
             nagios_389ds_rpm(&general_config)
                 .inspect_err(|_| println!("Failed to package nagios"))

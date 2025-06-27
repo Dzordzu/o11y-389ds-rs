@@ -6,8 +6,8 @@ ConditionPathExists=/usr/bin/haproxy-389ds-rs
 
 [Service]
 User=exporter-389ds-rs
-Group=root
-ExecStart=/usr/bin/haproxy-389ds-rs -c /etc/o11y-389ds-rs/default-haproxy.toml
+Group=o11y-389ds-rs
+ExecStart=/usr/bin/haproxy-389ds-rs -c /etc/o11y-389ds-rs/default.toml
 
 [Install]
 WantedBy=multi-user.target

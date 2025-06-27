@@ -1,3 +1,5 @@
+exclude = ["**/.undodir/*.toml", ".undodir/*.toml"]
+
 [formatting]
 align_entries = false
 indent_tables = true

@@ -3,6 +3,7 @@
 ![Exporter 389ds version](https://img.shields.io/github/v/tag/dzordzu/o11y-389ds-rs?filter=exporter*\&label=version)
 ![Nagios 389ds version](https://img.shields.io/github/v/tag/dzordzu/o11y-389ds-rs?filter=nagios*\&label=version)
 ![Haproxy 389ds version](https://img.shields.io/github/v/tag/dzordzu/o11y-389ds-rs?filter=haproxy*\&label=version)
+![Config 389ds version](https://img.shields.io/github/v/tag/dzordzu/o11y-389ds-rs?filter=config*\&label=version)
 ![GitHub last commit (branch)](https://img.shields.io/github/last-commit/Dzordzu/o11y-389ds-rs/master)
 ![GitHub Release Date](https://img.shields.io/github/release-date/dzordzu/o11y-389ds-rs)
 
@@ -143,6 +144,8 @@ configuration. To configure more checks/metrics and support non-standard
 deployments, tools can be configured by TOML file or CLI options. Example file
 can be found int the root of the repository. Every key below is ***optional***,
 unless stated otherwise.
+
+We provide a package that installs `default.toml` with proper permissions.
 
 **TLDR;** See example [ldap-config.example.toml](https://raw.githubusercontent.com/dzordzu/o11y-389ds-rs/master/ldap-config.example.toml)
 

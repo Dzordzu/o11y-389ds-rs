@@ -4325,14 +4325,10 @@ dependencies = [
  "anyhow",
  "chrono",
  "clap",
- "flate2",
- "regex",
  "rpm",
- "rustix 0.38.44",
  "serde",
  "serde_json",
  "sha2",
- "tar",
  "toml",
  "xshell",
  "xtask-toolkit",
@@ -4340,9 +4336,8 @@ dependencies = [
 
 [[package]]
 name = "xtask-toolkit"
-version = "0.1.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8618f8797f2a37b258cb9c28a79e80e5ba8a9f852d0d41e891b131565e6b9be4"
+version = "0.1.12"
+source = "git+https://github.com/Dzordzu/xtask-toolkit#b233e25a8357f1850e0c2b2fdb51289605d8d70f"
 dependencies = [
  "chrono",
  "flate2",
