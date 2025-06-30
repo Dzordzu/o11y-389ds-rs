@@ -112,9 +112,13 @@ pub async fn check_ldap_connection(config: &config::Config) -> Result<()> {
 }
 
 pub async fn handle_query(
-    query: CustomQuery,
+    mut query: CustomQuery,
     haproxy_query: &config::HaproxyQuery,
 ) -> Result<bool> {
+    if let config::HaproxyQuery::CountAttrs(count_entries) = haproxy_query {
+        query.attrs = vec![count_entries.attr.clone()];
+    }
+
     let metrics = query.get_metrics().await?;
 
     match haproxy_query {
@@ -136,13 +140,13 @@ pub async fn handle_query(
         config::HaproxyQuery::CountAttrs(counter_haproxy_query) => {
             let value = metrics.attrs_count;
 
-            if let Some(less_than) = counter_haproxy_query.less_than {
+            if let Some(less_than) = counter_haproxy_query.counter.less_than {
                 if value >= less_than {
                     return Ok(false);
                 }
             }
 
-            if let Some(greater_than) = counter_haproxy_query.greater_than {
+            if let Some(greater_than) = counter_haproxy_query.counter.greater_than {
                 if value <= greater_than {
                     return Ok(false);
                 }

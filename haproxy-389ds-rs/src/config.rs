@@ -53,6 +53,13 @@ pub struct CounterHaproxyQuery {
 }
 
 #[derive(Deserialize, Debug, Clone)]
+pub struct CounterAttrsHaproxyQuery {
+    #[serde(flatten)]
+    pub counter: CounterHaproxyQuery,
+    pub attr: String,
+}
+
+#[derive(Deserialize, Debug, Clone)]
 pub struct BaseHaproxyQuery {
     pub name: String,
     pub max_entries: Option<usize>,
@@ -64,7 +71,7 @@ pub struct BaseHaproxyQuery {
 #[serde(rename_all = "kebab-case")]
 pub enum HaproxyQuery {
     CountEntries(CounterHaproxyQuery),
-    CountAttrs(CounterHaproxyQuery),
+    CountAttrs(CounterAttrsHaproxyQuery),
     Success(BaseHaproxyQuery),
 }
 
@@ -72,7 +79,9 @@ impl HaproxyQuery {
     pub fn name(&self) -> &str {
         match self {
             HaproxyQuery::CountEntries(counter_haproxy_query) => &counter_haproxy_query.base.name,
-            HaproxyQuery::CountAttrs(counter_haproxy_query) => &counter_haproxy_query.base.name,
+            HaproxyQuery::CountAttrs(counter_haproxy_query) => {
+                &counter_haproxy_query.counter.base.name
+            }
             HaproxyQuery::Success(base_haproxy_query) => &base_haproxy_query.name,
         }
     }
@@ -83,7 +92,7 @@ impl HaproxyQuery {
                 counter_haproxy_query.base.max_entries
             }
             HaproxyQuery::CountAttrs(counter_haproxy_query) => {
-                counter_haproxy_query.base.max_entries
+                counter_haproxy_query.counter.base.max_entries
             }
             HaproxyQuery::Success(base_haproxy_query) => base_haproxy_query.max_entries,
         }
@@ -95,7 +104,7 @@ impl HaproxyQuery {
                 counter_haproxy_query.base.scrape_interval_seconds
             }
             HaproxyQuery::CountAttrs(counter_haproxy_query) => {
-                counter_haproxy_query.base.scrape_interval_seconds
+                counter_haproxy_query.counter.base.scrape_interval_seconds
             }
             HaproxyQuery::Success(base_haproxy_query) => base_haproxy_query.scrape_interval_seconds,
         }

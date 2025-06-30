@@ -128,6 +128,8 @@ impl CustomQuery {
             bytes += entry.attrs.iter().fold(0, |acc, x| acc + x.1.len()) as u64;
             attrs_count += entry.attrs.len() as u64;
 
+            println!("With attrs: {:?}: {:?}", self.attrs, entry);
+
             let mut attrs: Vec<(String, serde_json::Value)> = entry
                 .attrs
                 .into_iter()
