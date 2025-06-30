@@ -14,7 +14,7 @@ chrono = { workspace = true }
 sha2 = { workspace = true }
 rpm = "0.16.0"
 xshell = "0.2.7"
-xtask-toolkit = { version = "0.1.12", features = [
+xtask-toolkit = { git = "https://github.com/dzordzu/xtask-toolkit", features = [
    "git-precommit",
    "targz",
    "gh-cli",
