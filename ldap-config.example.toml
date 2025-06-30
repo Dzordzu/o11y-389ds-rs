@@ -1,26 +1,71 @@
 ldap_uri = "ldap://localhost"
-
-expose_port = 9100
-expose_address = "127.0.0.1"
-
 page_size = 999
-scrape_interval_seconds = 5
-
-[scrape_flags]
-gids_info = true
-replication_status = true
-ldap_monitoring = true
-dsctl = true
+scrape_interval_seconds = 10
 
 [bind]
 dn = "cn=Directory Manager"
 # Try to decode it from base64 ;)
 pass = "bm90IHNvIGVhc3kh"
 
-[dsctl]
-instance = "default"
-timeout_seconds = 10
+# Common data scrapers configuration
+[scrapers]
+   [scrapers.dsctl]
+   instance = "default"
+   timeout_seconds = 10
 
-[[query]]
-name = "list-users"
-filter = "(&(objectClass=posixAccount)(objectClass=inetOrgPerson))"
+   [[scrapers.query]]
+   name = "list-users"
+   filter = "(&(objectClass=posixAccount)(objectClass=inetOrgPerson))"
+   attrs = ["memberof"]
+   max_entries = 10000                                                 # we can limit the maximum number of returned entries
+
+   [[scrapers.query]]
+   name = "list-groups"
+   filter = "(&(objectClass=posixGroup)(objectClass=groupOfNames))"
+
+[exporter]
+expose_port = 9100
+expose_address = "127.0.0.1"
+scrape_interval_seconds = 5
+
+   [exporter.scrape_flags]
+   gids_info = true
+   replication_status = true
+   ldap_monitoring = true
+   dsctl = true
+
+   [[exporter.query]]
+   name = "list-users"
+   scrape_interval_seconds = 60
+   max_entries = 2137
+
+
+[haproxy]
+expose_port = 9966
+expose_address = "0.0.0.0"
+
+   [haproxy.scrape_flags]
+   replication_status = true
+   ldap_monitoring = true
+
+   [haproxy.scrape_interval_seconds]
+   replication_status = 30
+   ldap_monitoring = 5
+
+   [haproxy.query.users_present]
+   name = "list-users"
+   action = "count-entries"
+   greater_than = 0
+   scrape_interval_seconds = 30
+
+   [haproxy.query.groups_present]
+   name = "list-groups"
+   action = "count-entries"
+   greater_than = 200
+   scrape_interval_seconds = 2
+
+   [haproxy.query.memberofs_present]
+   name = "list-users"
+   action = "count-attrs"
+   attr = "memberOf"
+   greater_than = 0

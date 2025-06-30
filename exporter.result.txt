@@ -1,0 +1,223 @@
+# HELP monitor_disk__scrape_count How many scrapes have happened from the beggining of the process
+# TYPE monitor_disk__scrape_count counter
+monitor_disk__scrape_count{ldap_uri="ldap://localhost"} 264
+
+# HELP monitor_snmp__scrape_count How many scrapes have happened from the beggining of the process
+# TYPE monitor_snmp__scrape_count counter
+monitor_snmp__scrape_count{ldap_uri="ldap://localhost"} 264
+
+# HELP monitor__scrape_count How many scrapes have happened from the beggining of the process
+# TYPE monitor__scrape_count counter
+monitor__scrape_count{ldap_uri="ldap://localhost"} 264
+
+# HELP internal_runtime_seconds_active How long o11y-389ds-rs daemon has been already running
+# TYPE internal_runtime_seconds_active counter
+internal_runtime_seconds_active{ldap_uri="ldap://localhost"} 1315
+
+# TYPE monitor_maxthreadsperconnhits gauge
+monitor_maxthreadsperconnhits{ldap_uri="ldap://localhost"} 0
+
+# HELP internal_health_replication Replica scraper status
+# TYPE internal_health_replication gauge
+internal_health_replication{ldap_uri="ldap://localhost"} 0
+
+# TYPE monitor_currentconnections gauge
+monitor_currentconnections{ldap_uri="ldap://localhost"} 1
+
+# TYPE monitor_snmp_cachehits gauge
+monitor_snmp_cachehits{ldap_uri="ldap://localhost"} 0
+
+# TYPE monitor_snmp_addentryops gauge
+monitor_snmp_addentryops{ldap_uri="ldap://localhost"} 0
+
+# TYPE monitor_disk_used gauge
+monitor_disk_used{ldap_uri="ldap://localhost",partition="/"} 2495885312
+
+# TYPE monitor_disk_use_percentage gauge
+monitor_disk_use_percentage{ldap_uri="ldap://localhost",partition="/"} 12
+
+# TYPE monitor_snmp_removeentryops gauge
+monitor_snmp_removeentryops{ldap_uri="ldap://localhost"} 0
+
+# TYPE monitor_totalconnections gauge
+monitor_totalconnections{ldap_uri="ldap://localhost"} 8145
+
+# TYPE custom_query_attrs_count gauge
+custom_query_attrs_count{ldap_uri="ldap://localhost",query="list-posix-users"} 8
+custom_query_attrs_count{ldap_uri="ldap://localhost",query="list-posix-groups"} 3
+
+# TYPE monitor_snmp_compareops gauge
+monitor_snmp_compareops{ldap_uri="ldap://localhost"} 0
+
+# TYPE monitor_snmp_connections gauge
+monitor_snmp_connections{ldap_uri="ldap://localhost"} 1
+
+# TYPE custom_query_ldap_code gauge
+custom_query_ldap_code{ldap_uri="ldap://localhost",query="list-posix-groups"} 0
+custom_query_ldap_code{ldap_uri="ldap://localhost",query="list-posix-users"} 0
+
+# TYPE monitor_snmp_consumerhits gauge
+monitor_snmp_consumerhits{ldap_uri="ldap://localhost"} 0
+
+# TYPE monitor_version gauge
+monitor_version{ldap_uri="ldap://localhost",version="389-Directory/2.2.9 B2023.340.1155"} 1
+
+# TYPE monitor_snmp_searchops gauge
+monitor_snmp_searchops{ldap_uri="ldap://localhost"} 38628
+
+# TYPE monitor_snmp_onelevelsearchops gauge
+monitor_snmp_onelevelsearchops{ldap_uri="ldap://localhost"} 0
+
+# TYPE monitor_snmp_copyentries gauge
+monitor_snmp_copyentries{ldap_uri="ldap://localhost"} 0
+
+# TYPE internal_scrape_interval_seconds gauge
+internal_scrape_interval_seconds{ldap_uri="ldap://localhost"} 5
+
+# TYPE monitor_snmp_listops gauge
+monitor_snmp_listops{ldap_uri="ldap://localhost"} 0
+
+# TYPE monitor_snmp_inops gauge
+monitor_snmp_inops{ldap_uri="ldap://localhost"} 51572
+
+# TYPE monitor_snmp_referralsreturned gauge
+monitor_snmp_referralsreturned{ldap_uri="ldap://localhost"} 0
+
+# HELP internal_health_gids GIDs scraper status
+# TYPE internal_health_gids gauge
+internal_health_gids{ldap_uri="ldap://localhost"} 1
+
+# TYPE monitor_bytessent gauge
+monitor_bytessent{ldap_uri="ldap://localhost"} 4032650
+
+# TYPE monitor_snmp_connectionsinmaxthreads gauge
+monitor_snmp_connectionsinmaxthreads{ldap_uri="ldap://localhost"} 0
+
+# TYPE custom_query_duration_ms gauge
+custom_query_duration_ms{ldap_uri="ldap://localhost",query="list-posix-groups"} 0
+custom_query_duration_ms{ldap_uri="ldap://localhost",query="list-posix-users"} 0
+
+# TYPE monitor_starttime gauge
+monitor_starttime{ldap_uri="ldap://localhost"} 1750838635
+
+# TYPE monitor_snmp_connectionseq gauge
+monitor_snmp_connectionseq{ldap_uri="ldap://localhost"} 8145
+
+# HELP internal_health_query queries scraper status
+# TYPE internal_health_query gauge
+internal_health_query{ldap_uri="ldap://localhost",name="list-posix-groups"} 1
+internal_health_query{ldap_uri="ldap://localhost",name="list-posix-users"} 1
+
+# TYPE monitor_snmp_supplierentries gauge
+monitor_snmp_supplierentries{ldap_uri="ldap://localhost"} 0
+
+# TYPE monitor_snmp_modifyrdnops gauge
+monitor_snmp_modifyrdnops{ldap_uri="ldap://localhost"} 0
+
+# TYPE monitor_snmp_wholesubtreesearchops gauge
+monitor_snmp_wholesubtreesearchops{ldap_uri="ldap://localhost"} 9275
+
+# TYPE monitor_snmp_unauthbinds gauge
+monitor_snmp_unauthbinds{ldap_uri="ldap://localhost"} 0
+
+# TYPE monitor_snmp_strongauthbinds gauge
+monitor_snmp_strongauthbinds{ldap_uri="ldap://localhost"} 4800
+
+# TYPE monitor_snmp_simpleauthbinds gauge
+monitor_snmp_simpleauthbinds{ldap_uri="ldap://localhost"} 0
+
+# TYPE query_gids_unresolvable_count gauge
+query_gids_unresolvable_count{ldap_uri="ldap://localhost",gid="99998"} 1
+
+# TYPE monitor_opsinitiated gauge
+monitor_opsinitiated{ldap_uri="ldap://localhost"} 51570
+
+# TYPE monitor_snmp_entriesreturned gauge
+monitor_snmp_entriesreturned{ldap_uri="ldap://localhost"} 34519
+
+# TYPE monitor_snmp_readops gauge
+monitor_snmp_readops{ldap_uri="ldap://localhost"} 0
+
+# TYPE monitor_disk_size gauge
+monitor_disk_size{ldap_uri="ldap://localhost",partition="/"} 19674431488
+
+# TYPE monitor_currentconnectionsatmaxthreads gauge
+monitor_currentconnectionsatmaxthreads{ldap_uri="ldap://localhost"} 0
+
+# TYPE monitor_snmp_anonymousbinds gauge
+monitor_snmp_anonymousbinds{ldap_uri="ldap://localhost"} 0
+
+# TYPE monitor_snmp_bytesrecv gauge
+monitor_snmp_bytesrecv{ldap_uri="ldap://localhost"} 0
+
+# TYPE monitor_opscompleted gauge
+monitor_opscompleted{ldap_uri="ldap://localhost"} 51569
+
+# TYPE internal_exporter_info gauge
+internal_exporter_info{ldap_uri="ldap://localhost",version="0.2.0",name="exporter-389ds-rs"} 1
+
+# TYPE monitor_snmp_securityerrors gauge
+monitor_snmp_securityerrors{ldap_uri="ldap://localhost"} 0
+
+# TYPE monitor_snmp_referrals gauge
+monitor_snmp_referrals{ldap_uri="ldap://localhost"} 0
+
+# TYPE monitor_snmp_modifyentryops gauge
+monitor_snmp_modifyentryops{ldap_uri="ldap://localhost"} 0
+
+# TYPE monitor_readwaiters gauge
+monitor_readwaiters{ldap_uri="ldap://localhost"} 0
+
+# HELP internal_health_dsctl cli scraper status
+# TYPE internal_health_dsctl gauge
+internal_health_dsctl{ldap_uri="ldap://localhost"} 1
+
+# TYPE monitor_entriessent gauge
+monitor_entriessent{ldap_uri="ldap://localhost"} 34517
+
+# TYPE monitor_snmp_connectionsmaxthreadscount gauge
+monitor_snmp_connectionsmaxthreadscount{ldap_uri="ldap://localhost"} 0
+
+# TYPE monitor_snmp_cacheentries gauge
+monitor_snmp_cacheentries{ldap_uri="ldap://localhost"} 0
+
+# HELP internal_health_ldap_monitoring LDAP cn=monitor scraper status
+# TYPE internal_health_ldap_monitoring gauge
+internal_health_ldap_monitoring{ldap_uri="ldap://localhost"} 1
+
+# TYPE monitor_disk_available gauge
+monitor_disk_available{ldap_uri="ldap://localhost",partition="/"} 17178546176
+
+# TYPE monitor_dtablesize gauge
+monitor_dtablesize{ldap_uri="ldap://localhost"} 1024
+
+# TYPE monitor_nbackends gauge
+monitor_nbackends{ldap_uri="ldap://localhost"} 1
+
+# TYPE monitor_connection_count gauge
+monitor_connection_count{ldap_uri="ldap://localhost"} 0
+
+# TYPE monitor_snmp_chainings gauge
+monitor_snmp_chainings{ldap_uri="ldap://localhost"} 0
+
+# TYPE monitor_currenttime gauge
+monitor_currenttime{ldap_uri="ldap://localhost"} 1750844671
+
+# TYPE monitor_threads gauge
+monitor_threads{ldap_uri="ldap://localhost"} 17
+
+# TYPE custom_query_object_count gauge
+custom_query_object_count{ldap_uri="ldap://localhost",query="list-posix-groups"} 1
+custom_query_object_count{ldap_uri="ldap://localhost",query="list-posix-users"} 1
+
+# TYPE dsctl_healthcheck_healthy gauge
+dsctl_healthcheck_healthy{ldap_uri="ldap://localhost",instance="default"} 1
+
+# TYPE monitor_snmp_bindsecurityerrors gauge
+monitor_snmp_bindsecurityerrors{ldap_uri="ldap://localhost"} 0
+
+# TYPE monitor_snmp_bytessent gauge
+monitor_snmp_bytessent{ldap_uri="ldap://localhost"} 4033253
+
+# TYPE monitor_snmp_errors gauge
+monitor_snmp_errors{ldap_uri="ldap://localhost"} 4800

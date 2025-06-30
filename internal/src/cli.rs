@@ -106,6 +106,13 @@ impl CommandConfig {
         Ok(Vec::from_iter(checks))
     }
 
+    pub async fn systemd_running(&self) -> Result<bool> {
+        let mut cmd = Command::new("systemctl");
+        cmd.args(["is-active", &format!("dirsrv@{}", &self.instance_name)]);
+        let result = self.execute_cmd(&mut cmd).await?;
+        Ok(result.status.success())
+    }
+
     pub async fn healthcheck(&self, check_pattern: &str) -> Result<Vec<HealthcheckEntry>> {
         let mut cmd = Command::new("sudo");
         cmd.args([

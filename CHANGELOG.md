@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## exporter-389ds-rs-0.2.0 (2025-06-XX)
+## nagios-389ds-rs-0.2.0 (2025-06-XX)
+## haproxy-389ds-rs-0.2.0 (2025-06-XX)
+## grafana-389ds-rs-0.2.0 (2025-06-XX)
+
 ## nagios-389ds-rs-0.1.6 (2025-04-30)
 
 * Fixed issue with dsctl spawning. Now only one dsctl is spawned at one moment.

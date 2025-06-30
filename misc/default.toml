@@ -1,0 +1,49 @@
+[haproxy]
+expose_port = 9966
+expose_address = "0.0.0.0"
+
+   [haproxy.scrape_flags]
+   replication_status = true
+   ldap_monitoring = true
+
+   [haproxy.query.users_present]
+   name = "list-posix-users"
+   action = "count-entries"
+   greater_than = 0
+   scrape_interval_seconds = 10
+   max_entries = 1
+
+   [haproxy.query.memberofs_present]
+   name = "list-posix-users"
+   action = "count-attrs"
+   attr = "memberOf"
+   greater_than = 0
+   scrape_interval_seconds = 20
+
+   [haproxy.query.groups_present]
+   name = "list-posix-groups"
+   action = "count-entries"
+   greater_than = 0
+   scrape_interval_seconds = 10
+   max_entries = 1
+
+[exporter]
+query = [{ name = "list-posix-users" }, { name = "list-posix-groups" }]
+
+   [exporter.scrape_flags]
+   gids_info = true
+   replication_status = true
+   ldap_monitoring = true
+   dsctl = true
+
+[scrapers.dsctl]
+instance = "default"
+timeout_seconds = 10
+
+[[scrapers.query]]
+name = "list-posix-users"
+filter = "(objectClass=posixAccount)"
+
+[[scrapers.query]]
+name = "list-posix-groups"
+filter = "(objectClass=posixGroup)"

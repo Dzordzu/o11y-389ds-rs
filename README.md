@@ -2,6 +2,8 @@
 
 ![Exporter 389ds version](https://img.shields.io/github/v/tag/dzordzu/o11y-389ds-rs?filter=exporter*\&label=version)
 ![Nagios 389ds version](https://img.shields.io/github/v/tag/dzordzu/o11y-389ds-rs?filter=nagios*\&label=version)
+![Haproxy 389ds version](https://img.shields.io/github/v/tag/dzordzu/o11y-389ds-rs?filter=haproxy*\&label=version)
+![Config 389ds version](https://img.shields.io/github/v/tag/dzordzu/o11y-389ds-rs?filter=config*\&label=version)
 ![GitHub last commit (branch)](https://img.shields.io/github/last-commit/Dzordzu/o11y-389ds-rs/master)
 ![GitHub Release Date](https://img.shields.io/github/release-date/dzordzu/o11y-389ds-rs)
 
@@ -17,8 +19,11 @@
     * [Supported features](#supported-features)
     * [Grafana dashboards](#grafana-dashboards)
     * [Exporter usage](#exporter-usage)
+    * [Exporter result](#exporter-result)
     * [Nagios plugin usage](#nagios-plugin-usage)
     * [Configuration](#configuration)
+        * [Notation](#notation)
+        * [Definition](#definition)
 * [Building and packaging](#building-and-packaging)
     * [Build dependencies](#build-dependencies)
 * [Development](#development)
@@ -50,10 +55,11 @@ This repository contains the following projects
 
 * `exporter-389ds-rs`: Prometheus exporter for the 389ds
 * `nagios-389ds-rs`: Nagios plugin for the 389ds.
+* `haproxy-389ds-rs`: HAProxy healthcheck plugin for the 389ds
 
 ### Supported features
 
-* `cn=monitor` based checks and metrics
+* `cn=monitor` based checks and metrics (called `ldap-monitor` and `ldap_monitoring`)
 * connection metrics with labeled information about connection DN and IP
   address
 * replication based checks and metrics
@@ -93,6 +99,10 @@ Options:
   -h, --help
           Print help (see more with '--help')
 ```
+
+### Exporter result
+
+See [exporter.result.txt](https://raw.githubusercontent.com/dzordzu/o11y-389ds-rs/master/exporter.result.txt)
 
 ### Nagios plugin usage
 
@@ -135,39 +145,32 @@ deployments, tools can be configured by TOML file or CLI options. Example file
 can be found int the root of the repository. Every key below is ***optional***,
 unless stated otherwise.
 
-```
-ldap_uri = <string>                             # default: ldap://localhost
-default_base = <string>                         # default: (auto-detected)
+We provide a package that installs `default.toml` with proper permissions.
 
-verify_certs = <bool>                           # default: true
-page_size = <int>                               # default: 999
-scrape_interval_seconds = <int>                 # default: 5
-bind = <BIND>                                   # default: None
-dsctl = <DSCTL>                                 # default: DSCTL::default
+**TLDR;** See example [ldap-config.example.toml](https://raw.githubusercontent.com/dzordzu/o11y-389ds-rs/master/ldap-config.example.toml)
 
-# ---------------------------
-# Exporter only
-expose_port <int>                               # default: 9100
-expose_address = <string>                       # default: 0.0.0.0
-scrape_flags = <SCRAPE_FLAGS>                   # default: SCRAPE_FLAGS::default
-query = <[QUERY]>                               # default: []
-# ---------------------------
-```
+#### Notation
 
-**\<SCRAPE\_FLAGS> type**
+* Primitive types: `<string>`, `<int>`, `<bool>`
+* Arrays/Vectors of type `SType`: `<[Stype]>`
+* Maps with keys `KType` and values `VType`: `<map[KType, VType]>`
+* Required field of type `RType`: `:<RType:required>`
+* Variant `X` of the enum `E`: `<E::X`>
+* Default value of the type `T`: `T::default`
+
+#### Definition
 
 ```
-replication_status = <bool>                     # default: true
-ldap_monitoring = <bool>                        # default: true
-gids_info = <bool>                              # default: false
-dsctl = <bool>                                  # default: false
-```
+ldap_uri = <string>                                   # default: ldap://localhost
+default_base = <string>                               # default: (auto-detected)
+verify_certs = <bool>                                 # default: true
+page_size = <int>                                     # default: 999
 
-**\<DSCTL> type**
+bind = <BIND>                                         # default: None
+scrapers = <SCRAPERS>                                 # default: SCRAPERS::default
 
-```
-instance = <string>                             # default: localhost
-timeout_seconds = <int>                         # default: 10
+haproxy = <HAPROXY>                                   # default: HAPROXY::default
+exporter = <EXPORTER>                                 # default: EXPORTER::default
 ```
 
 **\<BIND> type**
@@ -177,22 +180,126 @@ dn = <string:required>
 pass = <string:required>
 ```
 
+**\<SCRAPERS> type**
+
+```
+dsctl = <DSCTL>                                       # default: DSCTL::default
+query = <[QUERY]>                                     # default: []
+```
+
+**\<DSCTL> type**
+
+```
+instance = <string>                                   # default: localhost
+timeout_seconds = <int>                               # default: 10
+```
+
 **\<QUERY> type**
 
 ```
 name = <string:required>
 filter = <string:required>
+max_entries = <int>                                   # default: (all possible entries)
 
-attrs = <[string]>                              # default: (all attributes)
+attrs = <[string]>                                    # default: (all attributes)
 
 # ---------------------------
 # Overrides for main ldap config
-verify_certs = <bool>           # default: None
-uri = <string>                  # default: None
-page_size = <int>               # default: None
-default_base = <string>         # default: None
-bind = <BIND>                   # default: None
+verify_certs = <bool>                                 # default: None
+uri = <string>                                        # default: None
+page_size = <int>                                     # default: None
+default_base = <string>                               # default: None
+bind = <BIND>                                         # default: None
 # ---------------------------
+```
+
+**\<HAPROXY> type**
+
+```
+expose_port = <int>                                   # default: 9966
+expose_address = <string>                             # default: 0.0.0.0
+query = <[HAPROXY_QUERY]>                             # default: []
+scrape_flags = <map[<string>, HAPROXY_SCRAPE_FLAGS]>  # default: []
+scrape_interval_seconds = <SCRAPE_INTERVALS>          # default: SCRAPE_INTERVALS::default>
+```
+
+
+**\<HAPROXY\_SCRAPE\_FLAGS> type**
+
+```
+replication_status = <bool>                           # default: true
+ldap_monitoring = <bool>                              # default: true
+```
+
+**\<SCRAPE\_INTERVALS> type**
+
+```
+replication_status = <int>                            # default: 5
+ldap_monitoring = <int>                               # default: 5
+systemd_status = <int>                                # default: 5
+```
+
+**\<HAPROXY\_QUERY> type**
+
+Enum. One of the following:
+
+* `<HAPROXY_QUERY::COUNT_ENTRIES>`
+* `<HAPROXY_QUERY::COUNT_ATTRS>`
+* `<HAPROXY_QUERY::SUCCESS>`
+
+**\<HAPROXY\_QUERY::COUNT\_ENTRIES> type**
+
+```
+name = <string:required>
+action = "count-entries"
+greater_than = <int>                                  # default: 0
+less_than = <int>                                     # default: 0
+scrape_interval_seconds = <int>                       # default: 30
+```
+
+**\<HAPROXY\_QUERY::COUNT\_ATTRS> type**
+
+```
+name = <string:required>
+action = "count-attrs"
+greater_than = <int>                                  # default: 0
+less_than = <int>                                     # default: 0
+scrape_interval_seconds = <int>                       # default: 5
+```
+
+**\<HAPROXY\_QUERY::SUCCESS> type**
+
+```
+name = <string:required>
+action = "success"
+scrape_interval_seconds = <int>                       # default: 5
+```
+
+**\<EXPORTER> type**
+
+```
+expose_port = <int>                                   # default: 9100
+expose_address = <string>                             # default: 0.0.0.0
+scrape_flags = <EXPORTER\_SCRAPE_FLAGS>               # default: EXPORTER_SCRAPE_FLAGS::default
+query = <[EXPORTER_QUERY]>                            # default: []
+scrape_interval_seconds = <int>                       # default: 5
+```
+
+**\<EXPORTER\_SCRAPE\_FLAGS> type**
+
+```
+replication_status = <bool>                           # default: true
+ldap_monitoring = <bool>                              # default: true
+gids_info = <bool>                                    # default: false
+dsctl = <bool>                                        # default: false
+```
+
+**\<EXPORTER\_QUERY> type**
+
+```
+name = <string:required>
+scrape_interval_seconds = <int>                       # default: 5
+max_entries = <int>                                   # default: (all possible entries)
 ```
 
 ## Building and packaging

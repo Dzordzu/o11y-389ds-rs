@@ -1,0 +1,5 @@
+[package]
+name = "config-389ds-rs"
+version = "0.2.0"
+license = "MIT"
+description = "Config package for 389ds exporter, haproxy and nagios"
