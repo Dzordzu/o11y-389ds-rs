@@ -15,3 +15,6 @@ anyhow = { workspace = true }
 internal = { path = "../internal" }
 tokio-util = { workspace = true }
 actix-web = "4.11.0"
+utoipa = { version = "5.4.0", features = ["actix_extras"] }
+utoipa-swagger-ui = { version = "9", features = ["actix-web"] }
+utoipa-actix-web = "0.1.2"

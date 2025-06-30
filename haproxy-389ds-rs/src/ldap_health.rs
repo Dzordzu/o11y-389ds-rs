@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use std::collections::HashMap;
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, utoipa::ToSchema)]
 pub struct NodeDisabled {
     /// Server is set to drainage
     pub mark_drain: bool,
@@ -18,7 +18,7 @@ pub struct NodeDisabled {
     pub mark_stopped: bool,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, utoipa::ToSchema)]
 pub struct LdapStatus {
     pub is_systemd_running: bool,
     pub is_reachable: bool,
@@ -26,7 +26,7 @@ pub struct LdapStatus {
     pub queries_status: HashMap<String, bool>,
 }
 
-#[derive(Debug, Clone, Deserialize, Serialize)]
+#[derive(Debug, Clone, Deserialize, Serialize, utoipa::ToResponse, utoipa::ToSchema)]
 pub struct Health {
     pub disabled: NodeDisabled,
     pub status: LdapStatus,
