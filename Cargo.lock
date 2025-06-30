@@ -4496,7 +4496,7 @@ dependencies = [
 [[package]]
 name = "xtask-toolkit"
 version = "0.1.12"
-source = "git+https://github.com/dzordzu/xtask-toolkit#3373268d617bb185aa5ab067964e920d2c839b6a"
+source = "git+https://github.com/dzordzu/xtask-toolkit#3068f8b7c6ac5cbfa92bae98ce8c7f9ba5222735"
 dependencies = [
  "chrono",
  "flate2",
