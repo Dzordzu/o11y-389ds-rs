@@ -4496,8 +4496,7 @@ dependencies = [
 [[package]]
 name = "xtask-toolkit"
 version = "0.1.12"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5d56d8ff3eb0d5b43624e570315879c961148c925a379db02276e1f368e3f5e6"
+source = "git+https://github.com/dzordzu/xtask-toolkit#b233e25a8357f1850e0c2b2fdb51289605d8d70f"
 dependencies = [
  "chrono",
  "flate2",
