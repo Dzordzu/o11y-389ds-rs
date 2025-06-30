@@ -25,9 +25,9 @@ pub struct CustomQuery {
     pub page_size: Option<i32>,
     pub default_base: Option<String>,
 
-    /// It's the operational parameter, hadled
+    /// It's the operational parameter, handled by the code
     #[serde(skip, default)]
-    pub ldap_config: crate::LdapConfig,
+    pub ldap_config: Option<crate::LdapConfig>,
 }
 
 #[derive(Debug, Clone)]
@@ -58,11 +58,14 @@ impl CustomQuery {
             page_size: None,
             default_base: None,
             verify_certs: None,
-            ldap_config,
+            ldap_config: Some(ldap_config),
         }
     }
+
     pub async fn connect(&self) -> Result<Ldap> {
-        let mut config = self.ldap_config.clone();
+        let mut config = self.ldap_config.clone().ok_or(anyhow::anyhow!(
+            "No ldap config. This is (most likely) a bug"
+        ))?;
 
         if let Some(uri) = self.uri.clone() {
             config.uri = uri;
@@ -88,9 +91,14 @@ impl CustomQuery {
     }
     pub async fn get_metrics(&self) -> Result<Metrics> {
         let mut ldap = self.connect().await?;
+
+        let ldap_config = self.ldap_config.as_ref().ok_or(anyhow::anyhow!(
+            "No ldap config. This is (most likely) a bug"
+        ))?;
+
         let adapters: Vec<Box<dyn Adapter<_, _>>> = vec![
             Box::new(EntriesOnly::new()),
-            Box::new(PagedResults::new(self.ldap_config.page_size)),
+            Box::new(PagedResults::new(ldap_config.page_size)),
         ];
 
         if let Some(max_entries) = self.max_entries {
@@ -100,7 +108,7 @@ impl CustomQuery {
         let mut search = ldap
             .streaming_search_with(
                 adapters,
-                &self.ldap_config.default_base,
+                &ldap_config.default_base,
                 Scope::Subtree,
                 &self.filter,
                 &self.attrs,

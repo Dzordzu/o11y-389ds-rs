@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use serde::{Deserialize, Serialize};
 
 fn default_true() -> bool {
@@ -27,6 +29,7 @@ pub struct ScrapeIntervalSeconds {
     pub ldap_monitoring: u64,
     pub systemd_status: u64,
     pub ldap_accessibility: u64,
+    pub query: u64,
 }
 
 impl Default for ScrapeIntervalSeconds {
@@ -36,6 +39,65 @@ impl Default for ScrapeIntervalSeconds {
             ldap_monitoring: 5,
             systemd_status: 5,
             ldap_accessibility: 5,
+            query: 5,
+        }
+    }
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct CounterHaproxyQuery {
+    #[serde(flatten)]
+    pub base: BaseHaproxyQuery,
+    pub greater_than: Option<u64>,
+    pub less_than: Option<u64>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+pub struct BaseHaproxyQuery {
+    pub name: String,
+    pub max_entries: Option<usize>,
+    pub scrape_interval_seconds: Option<u64>,
+}
+
+#[derive(Deserialize, Debug, Clone)]
+#[serde(tag = "action")]
+#[serde(rename_all = "kebab-case")]
+pub enum HaproxyQuery {
+    CountEntries(CounterHaproxyQuery),
+    CountAttrs(CounterHaproxyQuery),
+    Success(BaseHaproxyQuery),
+}
+
+impl HaproxyQuery {
+    pub fn name(&self) -> &str {
+        match self {
+            HaproxyQuery::CountEntries(counter_haproxy_query) => &counter_haproxy_query.base.name,
+            HaproxyQuery::CountAttrs(counter_haproxy_query) => &counter_haproxy_query.base.name,
+            HaproxyQuery::Success(base_haproxy_query) => &base_haproxy_query.name,
+        }
+    }
+
+    pub fn max_entries(&self) -> Option<usize> {
+        match self {
+            HaproxyQuery::CountEntries(counter_haproxy_query) => {
+                counter_haproxy_query.base.max_entries
+            }
+            HaproxyQuery::CountAttrs(counter_haproxy_query) => {
+                counter_haproxy_query.base.max_entries
+            }
+            HaproxyQuery::Success(base_haproxy_query) => base_haproxy_query.max_entries,
+        }
+    }
+
+    pub fn scrape_interval_seconds(&self) -> Option<u64> {
+        match self {
+            HaproxyQuery::CountEntries(counter_haproxy_query) => {
+                counter_haproxy_query.base.scrape_interval_seconds
+            }
+            HaproxyQuery::CountAttrs(counter_haproxy_query) => {
+                counter_haproxy_query.base.scrape_interval_seconds
+            }
+            HaproxyQuery::Success(base_haproxy_query) => base_haproxy_query.scrape_interval_seconds,
         }
     }
 }
@@ -53,6 +115,9 @@ pub struct HaproxyConfig {
 
     #[serde(default)]
     pub scrape_flags: ScrapeFlags,
+
+    #[serde(default)]
+    pub query: HashMap<String, HaproxyQuery>,
 }
 
 impl Default for HaproxyConfig {
@@ -62,6 +127,7 @@ impl Default for HaproxyConfig {
             expose_address: default_expose_address(),
             scrape_interval_seconds: ScrapeIntervalSeconds::default(),
             scrape_flags: ScrapeFlags::default(),
+            query: Default::default(),
         }
     }
 }

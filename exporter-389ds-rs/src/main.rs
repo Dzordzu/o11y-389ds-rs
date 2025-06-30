@@ -270,7 +270,7 @@ async fn setup_query_checks(
         }
 
         tracker.spawn(async move {
-            query.1.ldap_config = config.common.ldap_config.clone();
+            query.1.ldap_config = Some(config.common.ldap_config.clone());
             let health_gauge = gauge!("internal.health.query", "name" => query.1.name.clone());
 
             loop {

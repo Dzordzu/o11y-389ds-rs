@@ -8,7 +8,7 @@ use anyhow::Result;
 use clap::Parser;
 use cli::{ArgFlag, Args};
 use config::Config;
-use internal::Bind;
+use internal::{Bind, query::CustomQuery};
 use ldap_health::Health;
 use std::sync::Arc;
 use tokio::{select, sync::Mutex};
@@ -111,6 +111,148 @@ pub async fn check_ldap_connection(config: &config::Config) -> Result<()> {
     Ok(())
 }
 
+pub async fn handle_query(
+    query: CustomQuery,
+    haproxy_query: &config::HaproxyQuery,
+) -> Result<bool> {
+    let metrics = query.get_metrics().await?;
+
+    match haproxy_query {
+        config::HaproxyQuery::CountEntries(counter_haproxy_query) => {
+            let value = metrics.object_count;
+
+            if let Some(less_than) = counter_haproxy_query.less_than {
+                if value >= less_than {
+                    return Ok(false);
+                }
+            }
+
+            if let Some(greater_than) = counter_haproxy_query.greater_than {
+                if value <= greater_than {
+                    return Ok(false);
+                }
+            }
+        }
+        config::HaproxyQuery::CountAttrs(counter_haproxy_query) => {
+            let value = metrics.attrs_count;
+
+            if let Some(less_than) = counter_haproxy_query.less_than {
+                if value >= less_than {
+                    return Ok(false);
+                }
+            }
+
+            if let Some(greater_than) = counter_haproxy_query.greater_than {
+                if value <= greater_than {
+                    return Ok(false);
+                }
+            }
+        }
+        config::HaproxyQuery::Success(_) => {
+            // query executed, we are happy
+        }
+    }
+
+    Ok(true)
+}
+
+#[derive(Debug, Clone)]
+struct SetupQueriesTrio {
+    named_check: String,
+    haproxy_query: config::HaproxyQuery,
+    query_definition: internal::query::CustomQuery,
+}
+
+pub async fn setup_queries_loops(
+    config: Config,
+    app_state: AppState,
+    cancel_token: CancellationToken,
+    tracker: &TaskTracker,
+) {
+    tracing::info!("Setting up 389ds queries");
+
+    for mut trio in config
+        .haproxy
+        .query
+        .iter()
+        .filter_map(|(named_check, haproxy_query)| {
+            if let Some(query_def) = config
+                .common
+                .scrapers
+                .query
+                .iter()
+                .find(|query| query.name == haproxy_query.name())
+            {
+                Some(SetupQueriesTrio {
+                    named_check: named_check.clone(),
+                    haproxy_query: haproxy_query.clone(),
+                    query_definition: query_def.clone(),
+                })
+            } else {
+                tracing::error!(
+                    "Query {} not found in scrapers definitions",
+                    haproxy_query.name()
+                );
+                None
+            }
+        })
+    {
+        let cancel_token = cancel_token.clone();
+        let config = config.clone();
+
+        if let Some(max_entries) = trio.haproxy_query.max_entries() {
+            trio.query_definition.max_entries = Some(max_entries as i32);
+        }
+
+        let app_state = app_state.clone();
+        tracker.spawn(async move {
+            trio.query_definition.ldap_config = Some(config.common.ldap_config.clone());
+            let query_name = trio.named_check;
+            loop {
+                match handle_query(trio.query_definition.clone(), &trio.haproxy_query).await {
+                    Err(e) => {
+                        tracing::error!(
+                            "Error executing query {} (scrape name: {}): {}",
+                            query_name,
+                            trio.haproxy_query.name(),
+                            e
+                        );
+                        app_state
+                            .lock()
+                            .await
+                            .health
+                            .status
+                            .queries_status
+                            .insert(query_name.to_string(), false);
+                    }
+                    Ok(x) => {
+                        app_state
+                            .lock()
+                            .await
+                            .health
+                            .status
+                            .queries_status
+                            .insert(query_name.to_string(), x);
+                    }
+                }
+
+                select! {
+                    _ = tokio::time::sleep(tokio::time::Duration::from_secs(
+                        trio.haproxy_query.scrape_interval_seconds().unwrap_or(
+                            config.haproxy.scrape_interval_seconds.query
+                        ),
+                    )) => {
+
+                    },
+                    _ = cancel_token.cancelled() => {
+                        break
+                    }
+                }
+            }
+        });
+    }
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
@@ -179,7 +321,7 @@ async fn main() -> Result<()> {
 
     let app_state_clone = app_state.clone();
     let config_clone = config.clone();
-    tracker.spawn(async move {
+    let webserver_loop = tracker.spawn(async move {
         tracing::info!("Starting webserver");
         web::webserver(
             config_clone.haproxy.expose_address,
@@ -212,6 +354,14 @@ async fn main() -> Result<()> {
             .status
             .is_systemd_running = true;
     }
+
+    let app_state_clone = app_state.clone();
+    let config_clone = config.clone();
+    let cancel_token = cancel_token_orig.clone();
+    setup_queries_loops(config_clone, app_state_clone, cancel_token, &tracker).await;
+
+    tracing::info!("Awaiting close of the webserver_loop");
+    webserver_loop.await?;
 
     tracker.close();
     tracker.wait().await;
