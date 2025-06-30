@@ -1,9 +1,21 @@
 # CHANGELOG
 
-## exporter-389ds-rs-0.2.0 (2025-06-XX)
-## nagios-389ds-rs-0.2.0 (2025-06-XX)
-## haproxy-389ds-rs-0.2.0 (2025-06-XX)
-## grafana-389ds-rs-0.2.0 (2025-06-XX)
+## config-389ds-rs-0.2.0 (2025-06-30)
+* Migrated default config to config-389ds-rs
+
+## exporter-389ds-rs-0.2.0 (2025-06-30)
+* New config
+* Migrated default config to config-389ds-rs
+* Now queries are executed in a separate loops
+
+## nagios-389ds-rs-0.2.0 (2025-06-30)
+* New config
+
+## haproxy-389ds-rs-0.2.0 (2025-06-30)
+* Added haproxy-389ds-rs
+
+## grafana-389ds-rs-0.2.0 (2025-06-30)
+* Nothing new actually... TBD
 
 ## nagios-389ds-rs-0.1.6 (2025-04-30)
 
