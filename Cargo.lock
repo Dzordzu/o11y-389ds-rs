@@ -1243,7 +1243,7 @@ dependencies = [
 
 [[package]]
 name = "exporter-389ds-rs"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -1566,7 +1566,7 @@ dependencies = [
 
 [[package]]
 name = "haproxy-389ds-rs"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "actix-web",
  "anyhow",
@@ -1938,7 +1938,7 @@ dependencies = [
 
 [[package]]
 name = "internal"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2311,7 +2311,7 @@ dependencies = [
 
 [[package]]
 name = "nagios-389ds-rs"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "clap",
