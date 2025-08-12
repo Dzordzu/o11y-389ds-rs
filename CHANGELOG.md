@@ -1,8 +1,15 @@
 # CHANGELOG
 
+## exporter-389ds-rs-0.2.2 (2025-08-12)
+* Dependency updates
+
 ## haproxy-389ds-rs-0.2.2 (2025-08-12)
+* Dependency updates
 * Added missing tcp server
 * Updated docs
+
+## nagios-389ds-rs-0.2.2 (2025-08-12)
+* Dependency updates
 
 ## exporter-389ds-rs-0.2.1 
 * Removed single println from the code
