@@ -6,6 +6,10 @@ fn default_true() -> bool {
     true
 }
 
+fn default_expose_tcp_port() -> u16 {
+    16699
+}
+
 fn default_expose_port() -> u16 {
     6699
 }
@@ -113,6 +117,9 @@ impl HaproxyQuery {
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct HaproxyConfig {
+    #[serde(default = "default_expose_tcp_port")]
+    pub expose_tcp_port: u16,
+
     #[serde(default = "default_expose_port")]
     pub expose_port: u16,
 
@@ -137,6 +144,7 @@ impl Default for HaproxyConfig {
             scrape_interval_seconds: ScrapeIntervalSeconds::default(),
             scrape_flags: ScrapeFlags::default(),
             query: Default::default(),
+            expose_tcp_port: default_expose_tcp_port(),
         }
     }
 }

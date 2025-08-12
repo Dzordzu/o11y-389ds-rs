@@ -257,6 +257,10 @@ pub async fn setup_queries_loops(
     }
 }
 
+async fn tcp_server_loop() -> Result<()> {
+    Ok(())
+}
+
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
@@ -363,6 +367,8 @@ async fn main() -> Result<()> {
     let config_clone = config.clone();
     let cancel_token = cancel_token_orig.clone();
     setup_queries_loops(config_clone, app_state_clone, cancel_token, &tracker).await;
+
+    tracker.spawn(async move { tcp_server_loop().await });
 
     tracing::info!("Awaiting close of the webserver_loop");
     webserver_loop.await?;

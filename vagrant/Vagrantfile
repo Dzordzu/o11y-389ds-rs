@@ -6,11 +6,41 @@
 # backwards compatibility). Please don't change it unless you know what
 # you're doing.
 Vagrant.configure('2') do |config|
-  config.vm.box = 'almalinux/8'
-  config.vm.provider 'libvirt' do |v|
-    v.memory = 1024
-    v.cpus = 2
+
+  config.vm.define "ldap1" do |ldap1|
+    ldap1.vm.box = 'almalinux/8'
+
+    ldap1.vm.provider 'libvirt' do |v|
+      v.memory = 1024
+      v.cpus = 2
+    end
+
+    ldap1.vm.network "private_network", ip: "192.168.50.3"
+
+    ldap1.vm.provision 'file', source: '../target/dist/', destination: '/tmp/dist'
+    ldap1.vm.provision 'shell', inline: 'mkdir -p /root/install && mv -f /tmp/dist/* /root/install/'
   end
-  config.vm.provision 'file', source: '../target/dist/', destination: '/tmp/dist'
-  config.vm.provision 'shell', inline: 'mkdir -p /root/install && mv -f /tmp/dist/* /root/install/'
+
+  config.vm.define "ldap2" do |ldap2|
+    ldap2.vm.box = 'almalinux/8'
+
+    ldap2.vm.provider 'libvirt' do |v|
+      v.memory = 1024
+      v.cpus = 2
+    end
+
+    ldap2.vm.network "private_network", ip: "192.168.50.4"
+
+    ldap2.vm.provision 'file', source: '../target/dist/', destination: '/tmp/dist'
+    ldap2.vm.provision 'shell', inline: 'mkdir -p /root/install && mv -f /tmp/dist/* /root/install/'
+  end
+
+  config.vm.define "haproxy" do |haproxy|
+    haproxy.vm.box = 'almalinux/8'
+    haproxy.vm.network "private_network", ip: "192.168.50.2"
+
+    haproxy.vm.provision 'file', source: '../target/dist/', destination: '/tmp/dist'
+    haproxy.vm.provision 'shell', inline: 'mkdir -p /root/install && mv -f /tmp/dist/* /root/install/'
+  end
+
 end
