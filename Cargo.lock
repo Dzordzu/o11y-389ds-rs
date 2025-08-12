@@ -1243,7 +1243,7 @@ dependencies = [
 
 [[package]]
 name = "exporter-389ds-rs"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "chrono",
@@ -2322,7 +2322,7 @@ dependencies = [
 
 [[package]]
 name = "nagios-389ds-rs"
-version = "0.2.1"
+version = "0.2.2"
 dependencies = [
  "anyhow",
  "clap",
