@@ -114,7 +114,7 @@ impl Response {
             Status::Up | Status::Maintenance(Maintenance::Ready)
         ) {
             match self.weight {
-                Some(weight) => format!(" weight:{}%", weight),
+                Some(weight) => format!(" {}%", weight),
                 None => "".to_string(),
             }
         } else {

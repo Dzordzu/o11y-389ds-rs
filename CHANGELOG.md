@@ -1,5 +1,18 @@
 # CHANGELOG
 
+## haproxy-389ds-rs-0.2.2 (2025-08-12)
+* Added missing tcp server
+* Updated docs
+
+## exporter-389ds-rs-0.2.1 
+* Removed single println from the code
+
+## nagios-389ds-rs-0.2.1
+* Removed single println from the code
+
+## haproxy-389ds-rs-0.2.1
+* Removed single println from the code
+
 ## config-389ds-rs-0.2.0 (2025-06-30)
 * Migrated default config to config-389ds-rs
 

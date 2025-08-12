@@ -4,14 +4,19 @@ pub mod haproxy;
 pub mod ldap_health;
 pub mod web;
 
-use anyhow::Result;
+use anyhow::{Context, Result};
 use clap::Parser;
 use cli::{ArgFlag, Args};
 use config::Config;
 use internal::{Bind, query::CustomQuery};
 use ldap_health::Health;
 use std::sync::Arc;
-use tokio::{select, sync::Mutex};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    net::{TcpListener, TcpStream},
+    select,
+    sync::Mutex,
+};
 use tokio_util::{sync::CancellationToken, task::TaskTracker};
 
 pub struct AppStateBase {
@@ -257,8 +262,67 @@ pub async fn setup_queries_loops(
     }
 }
 
-async fn tcp_server_loop() -> Result<()> {
+async fn read_until_newline(stream: &mut TcpStream) -> Result<String> {
+    let mut bytes: Vec<u8> = vec![];
+
+    for _ in 0..10000 {
+        let byte = stream.read_u8().await.context(format!(
+            "Could not byte from the message. Currently processed {} bytes",
+            bytes.len()
+        ))?;
+
+        if byte == b'\n' {
+            return Ok(String::from_utf8(bytes)?);
+        }
+
+        bytes.push(byte);
+    }
+
+    Err(anyhow::anyhow!(
+        "Message larger than 10000. Cowardly exiting"
+    ))
+}
+
+async fn process_stream(mut stream: TcpStream, app_state: AppState) -> Result<()> {
+    let command = read_until_newline(&mut stream).await?;
+    if command == "ping" {
+        let mut data = app_state.lock().await;
+        data.evaluate();
+        let response = data.current_reponse.to_haproxy_string();
+
+        stream.writable().await.context("Could not wait to write")?;
+        stream
+            .write(&response.into_bytes().to_vec())
+            .await
+            .context("Failed to send reponse")?;
+    } else {
+        return Err(anyhow::anyhow!("Unknown command: {}", command));
+    }
+
     Ok(())
+}
+
+async fn tcp_server_loop(
+    config: Config,
+    app_state: AppState,
+    _cancel_token: CancellationToken,
+) -> Result<()> {
+    let addr = format!(
+        "{}:{}",
+        config.haproxy.expose_address, config.haproxy.expose_tcp_port
+    );
+    let listener = TcpListener::bind(&addr).await?;
+    tracing::info!("Starting tcp server. Listening on {}", &addr);
+
+    loop {
+        let app_state = app_state.clone();
+        if let Err(e) = {
+            let (socket, _) = listener.accept().await?;
+            process_stream(socket, app_state).await
+        } {
+            tracing::error!("Error during tcp processing {:?}", e);
+        }
+    }
 }
 
 #[tokio::main]
@@ -268,7 +332,9 @@ async fn main() -> Result<()> {
     tracing_subscriber::fmt::init();
 
     let mut config: Config = if let Some(conf) = &args.config {
-        let file = String::from_utf8(std::fs::read(conf)?)?;
+        let file = String::from_utf8(
+            std::fs::read(conf).context(format!("Could not read config file: {conf:?}"))?,
+        )?;
         toml::from_str(&file)?
     } else {
         Default::default()
@@ -368,7 +434,11 @@ async fn main() -> Result<()> {
     let cancel_token = cancel_token_orig.clone();
     setup_queries_loops(config_clone, app_state_clone, cancel_token, &tracker).await;
 
-    tracker.spawn(async move { tcp_server_loop().await });
+    let config_clone = config.clone();
+    let cancel_token = cancel_token_orig.clone();
+    let app_state_clone = app_state.clone();
+    tracker
+        .spawn(async move { tcp_server_loop(config_clone, app_state_clone, cancel_token).await });
 
     tracing::info!("Awaiting close of the webserver_loop");
     webserver_loop.await?;

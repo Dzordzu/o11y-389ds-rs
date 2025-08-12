@@ -21,6 +21,7 @@
     * [Exporter usage](#exporter-usage)
     * [Exporter result](#exporter-result)
     * [Nagios plugin usage](#nagios-plugin-usage)
+    * [Haproxy usage](#haproxy-usage)
     * [Configuration](#configuration)
         * [Notation](#notation)
         * [Definition](#definition)
@@ -28,6 +29,7 @@
     * [Build dependencies](#build-dependencies)
 * [Development](#development)
     * [Pre-commit hooks](#pre-commit-hooks)
+    * [Vagrant](#vagrant)
     * [Commiting](#commiting)
 * [Similar projects](#similar-projects)
 
@@ -137,6 +139,45 @@ Options:
   -h, --help                   Print help
 ```
 
+### Haproxy usage
+
+By default the haproxy agent port is set to `16699`. You can also see
+[an example haproxy config](./vagrant/ldap-haproxy.cfg).
+
+To change the haproxy port you need to modify configuration.
+
+```
+Usage: haproxy-389ds-rs [OPTIONS]
+
+Options:
+  -c, --config <CONFIG>
+          Path to the TOML configuration file
+  -P, --page-size <PAGE_SIZE>
+          LDAP paging setting
+  -C, --skip-cert-verification
+          Disable TLS cert verification
+  -a, --expose-address <EXPOSE_ADDRESS>
+
+  -p, --expose-port <EXPOSE_PORT>
+
+  -b, --basedn <BASEDN>
+
+  -D, --binddn <BINDDN>
+
+  -w, --bindpass <BINDPASS>
+
+  -H, --host <HOST>
+
+  -I, --scrape-interval-seconds <SCRAPE_INTERVAL_SECONDS>
+
+  -e, --enable-flags <ENABLE_FLAGS>
+          [possible values: replication, ldap-monitor]
+  -d, --disable-flags <DISABLE_FLAGS>
+          [possible values: replication, ldap-monitor]
+  -h, --help
+          Print help (see more with '--help')
+```
+
 ### Configuration
 
 Both the exporter and the nagios plugin will rather work **without** any
@@ -217,12 +258,12 @@ bind = <BIND>                                         # default: None
 
 ```
 expose_port = <int>                                   # default: 9966
+expose_tcp_port = <int>                               # default: 16699
 expose_address = <string>                             # default: 0.0.0.0
 query = <[HAPROXY_QUERY]>                             # default: []
 scrape_flags = <map[<string>, HAPROXY_SCRAPE_FLAGS]>  # default: []
 scrape_interval_seconds = <SCRAPE_INTERVALS>          # default: SCRAPE_INTERVALS::default>
 ```
-
 
 **\<HAPROXY\_SCRAPE\_FLAGS> type**
 
@@ -327,6 +368,17 @@ cargo xtask setup-repo
 
 * `taplo` for the toml formatting
 * `gitleaks` for passwords in repo detection
+
+### Vagrant
+
+This repo provides a vagrant file with an example setup to test changes.
+
+1. Build 389ds-rs binaries and packages using `cargo xtask dist`
+2. Run `vagrant up`
+3. Install haproxy and 389ds using scripts inside `/vagrant/` directory. 
+   Execute these scripts within VM!
+4. Install built packages using `dnf install /root/install/*.rpm`. In case of 
+   many versions, you need to modify the glob.
 
 ### Commiting
 
