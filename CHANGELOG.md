@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## exporter-389ds-rs-0.2.3 (2025-10-07)
+* Dependency updates (major)
+
+## nagios-389ds-rs-0.2.3 (2025-10-07)
+* Dependency updates (major)
+
+## haproxy-389ds-rs-0.2.3 (2025-10-07)
+* Dependency updates (major)
+
 ## exporter-389ds-rs-0.2.2 (2025-08-12)
 * Dependency updates
 

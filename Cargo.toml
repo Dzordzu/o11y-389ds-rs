@@ -9,20 +9,20 @@ members = [
 ]
 
    [workspace.dependencies]
-   anyhow = "1.0.95"
-   chrono = "0.4.39"
-   clap = { version = "4.5.30", features = ["derive"] }
+   anyhow = "1.0.100"
+   chrono = "0.4.42"
+   clap = { version = "4.5.48", features = ["derive"] }
    ldap3 = "0.11.5"
-   metrics = "0.24.1"
+   metrics = "0.24.2"
    metrics-exporter-prometheus = "0.16.2"
-   openssl-sys = { version = "0.9.106", features = ["vendored"] }
-   serde = { version = "1.0.217", features = ["derive"] }
-   serde_json = "1.0.138"
+   openssl-sys = { version = "0.9.109", features = ["vendored"] }
+   serde = { version = "1.0.228", features = ["derive"] }
+   serde_json = "1.0.145"
    struct-field-names-as-array = "0.3.0"
-   tokio = { version = "1.43.0", features = ["full"] }
-   toml = "0.8.20"
+   tokio = { version = "1.47.1", features = ["full"] }
+   toml = { version = "0.9.7", features = ["preserve_order"] }
    tracing = "0.1.41"
-   serde-aux = "4.6.0"
-   tracing-subscriber = "0.3.19"
-   sha2 = "0.10.8"
-   tokio-util = { version = "0.7.13", features = ["rt", "tracing"] }
+   serde-aux = "4.7.0"
+   tracing-subscriber = "0.3.20"
+   sha2 = "0.10.9"
+   tokio-util = { version = "0.7.16", features = ["rt", "tracing"] }
