@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## nagios-389ds-rs-0.2.4 (2025-11-04)
+* Updated CLI help
+* Added max_entries for custom queries
+
 ## exporter-389ds-rs-0.2.3 (2025-10-07)
 * Dependency updates (major)
 
