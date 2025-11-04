@@ -323,8 +323,13 @@ pub struct CliHealthcheck {
 
 #[derive(Args, Clone, Debug)]
 pub struct CustomQueryTime {
+    /// LDAP filter (query)
     #[arg(short = 'f', long, required = true)]
     pub filter: String,
+
+    /// Limit of the returned entries
+    #[arg(short = 'e', long)]
+    pub max_entries: Option<i32>,
 
     #[arg(short = 'w', long)]
     pub warn: Option<u64>,
@@ -339,8 +344,13 @@ pub struct CustomQueryIntegrity {
     #[arg(short = 'H', long = "host", required = true)]
     pub host: String,
 
+    /// LDAP filter (query)
     #[arg(short = 'f', long, required = true)]
     pub filter: String,
+
+    /// Limit of the returned entries
+    #[arg(short = 'e', long)]
+    pub max_entries: Option<i32>,
 
     /// Attributes to get
     #[arg(short = 'a', long)]
@@ -385,13 +395,14 @@ pub enum CheckVariant {
     Diskspace(Diskspace),
     /// Check health using dsctl cli
     CliHealthcheck(CliHealthcheck),
-    /// Check custom query times
+    /// Check custom query times (config against specified host)
     CustomQueryTime(CustomQueryTime),
-    /// Check custom query integrity
+    /// Check custom query integrity (config against specified host)
     CustomQueryIntegrity(CustomQueryIntegrity),
 }
 
-/// Perform nagios checks on the 389ds. All limits are using >= or <= comparsions, unless stated otherwise
+/// Perform nagios checks on the 389ds. All limits are using >= or <= comparsions, unless stated otherwise.
+/// NOTE: Most checks require config (at least host section)
 #[derive(Parser, Clone, Debug)]
 #[clap(group(ArgGroup::new("bind").requires_all(["binddn", "bindpass"]).multiple(true)))]
 pub struct Cli {
@@ -1116,11 +1127,13 @@ pub async fn command_select(config: LdapConfig, args: Cli, result: &mut Nagios) 
             }
         }
         CheckVariant::CustomQueryTime(cqt_config) => {
-            let cq = internal::query::CustomQuery::new(
+            let mut cq = internal::query::CustomQuery::new(
                 "query".to_string(),
                 cqt_config.filter.clone(),
                 config,
             );
+
+            cq.max_entries = cqt_config.max_entries;
 
             let metrics = cq.get_metrics().await?;
 
@@ -1156,6 +1169,8 @@ pub async fn command_select(config: LdapConfig, args: Cli, result: &mut Nagios) 
                     config.clone(),
                 );
                 custom_query.attrs = cqi_config.attributes.clone();
+                custom_query.max_entries = cqi_config.max_entries;
+
                 let metrics = custom_query.get_metrics().await?;
 
                 (
@@ -1232,6 +1247,8 @@ pub async fn command_select(config: LdapConfig, args: Cli, result: &mut Nagios) 
                 config.clone(),
             );
             custom_query.attrs = cqi_config.attributes.clone();
+            custom_query.max_entries = cqi_config.max_entries;
+
             let metrics = custom_query.get_metrics().await?;
 
             integrity.compare(
