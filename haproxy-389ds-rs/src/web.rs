@@ -1,5 +1,5 @@
 use crate::AppState;
-use actix_web::{App, HttpServer, get, post, web};
+use actix_web::{get, post, web, App, HttpServer};
 use serde::{Deserialize, Serialize};
 use utoipa::OpenApi;
 use utoipa_actix_web::AppExt;

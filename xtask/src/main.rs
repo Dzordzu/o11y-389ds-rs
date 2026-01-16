@@ -98,8 +98,8 @@ fn haproxy_389ds_rpm(config: &GeneralConfig) -> Result<()> {
 
 fn config_389ds_rpm(config: &GeneralConfig) -> Result<()> {
     let root_dir = get_project_root()?;
-    let misc_path = root_dir.join(MISC_DIR);
     let cargo_toml = config.config_project();
+    let misc_path = root_dir.join(cargo_toml.name().unwrap()).join(MISC_DIR);
 
     let rpm_builder = xtask_toolkit::package_rpm::Package::new(cargo_toml.clone())
         .dont_include_binary()

@@ -1,7 +1,39 @@
 [package]
 name = "haproxy-389ds-rs"
+description = "HAProxy agent for 389ds"
 version = "0.2.3"
-edition = "2024"
+edition = "2021"
+license = "MIT"
+
+   [package.metadata.generate-rpm]
+   pre_install_script = "haproxy-389ds-rs/misc/rpm.preinstall.sh"
+   post_install_script = "haproxy-389ds-rs/misc/rpm.postinstall.sh"
+   pre_uninstall_script = "haproxy-389ds-rs/misc/rpm.preuninstall.sh"
+   post_uninstall_script = "haproxy-389ds-rs/misc/rpm.postuninstall.sh"
+
+      [[package.metadata.generate-rpm.assets]]
+      dest = "/etc/systemd/system/haproxy-389ds-rs.service"
+      mode = "644"
+      source = "haproxy-389ds-rs/misc/haproxy-389ds-rs.service"
+      config = true
+
+      [[package.metadata.generate-rpm.assets]]
+      dest = "/usr/bin/haproxy-389ds-rs"
+      mode = "755"
+      source = "target/x86_64-unknown-linux-musl/release/haproxy-389ds-rs"
+
+      [[package.metadata.generate-rpm.assets]]
+      dest = "/etc/sudoers.d/haproxy-389ds-rs"
+      mode = "440"
+      source = "haproxy-389ds-rs/misc/haproxy.sudoers"
+      user = "root"
+
+      [[package.metadata.generate-rpm.assets]]
+      dest = "/etc/o11y-389ds-rs/haproxy.example.toml"
+      mode = "600"
+      source = "haproxy-389ds-rs/misc/haproxy-389ds-rs.minimal.toml"
+      user = "exporter-389ds-rs"
+      config = true
 
 [dependencies]
 tokio = { workspace = true, features = ["full"] }

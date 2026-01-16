@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use cli::{ArgFlag, Args};
 use config::Config;
-use internal::{Bind, query::CustomQuery};
+use internal::{query::CustomQuery, Bind};
 use ldap_health::Health;
 use std::sync::Arc;
 use tokio::{
