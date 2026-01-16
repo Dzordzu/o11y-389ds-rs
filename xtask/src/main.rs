@@ -64,87 +64,35 @@ fn common_rpm_build(
     Ok(())
 }
 
+fn generate_rpm_packaging(name: &str) -> Result<()> {
+    let cmd_result = std::process::Command::new("cargo-generate-rpm")
+        .args(["-a", MUSL_DIR])
+        .args(["-p", name])
+        .output()?;
+
+    if !cmd_result.status.success() {
+        let err_msg = std::str::from_utf8(&cmd_result.stderr).unwrap().to_owned();
+        return Err(anyhow!("Generate RPM failed").context(err_msg));
+    }
+
+    Ok(())
+}
+
 fn nagios_389ds_rpm(config: &GeneralConfig) -> Result<()> {
-    let misc_path = get_project_root()?.join(MISC_DIR);
-
-    let cargo_toml = config.nagios_project();
-
-    let rpm_builder = xtask_toolkit::package_rpm::Package::new(cargo_toml.clone())
-        .with_binary_destination("/usr/lib64/nagios/plugins/")
-        .with_binary_filename("check_389ds_rs")
-        .with_binary_src_archname(MUSL_DIR)
-        .builder()?
-        .with_file(
-            misc_path.join("nagios.sudoers"),
-            rpm::FileOptions::new("/etc/sudoers.d/nagios-389ds-rs")
-                .mode(rpm::FileMode::regular(0o440))
-                .user("root"),
-        )?;
-
-    common_rpm_build(config, cargo_toml, rpm_builder)?;
-
+    let project_name = config.nagios_project().name().unwrap();
+    generate_rpm_packaging(&project_name)?;
     Ok(())
 }
 
 fn exporter_389ds_rpm(config: &GeneralConfig) -> Result<()> {
-    let root_dir = get_project_root()?;
-    let misc_path = root_dir.join(MISC_DIR);
-    let cargo_toml = config.exporter_project();
-
-    let rpm_builder = xtask_toolkit::package_rpm::Package::new(cargo_toml.clone())
-        .with_binary_src_archname(MUSL_DIR)
-        .with_user("exporter-389ds-rs".to_string())
-        .with_group(COMMON_GROUP)
-        .with_systemd_unit(misc_path.join("exporter-389ds-rs.service"))
-        .expect("Could not find systemd unit file")
-        .builder()?
-        .with_file(
-            misc_path.join("exporter.sudoers"),
-            rpm::FileOptions::new("/etc/sudoers.d/exporter-389ds-rs")
-                .mode(rpm::FileMode::regular(0o440))
-                .user("root"),
-        )?
-        .with_file(
-            misc_path.join("exporter-389ds-rs.minimal.toml"),
-            rpm::FileOptions::new("/etc/o11y-389ds-rs/exporter.example.toml")
-                .is_config_noreplace()
-                .mode(rpm::FileMode::regular(0o600))
-                .user("exporter-389ds-rs"),
-        )?;
-
-    common_rpm_build(config, cargo_toml, rpm_builder)?;
-
+    let project_name = config.exporter_project().name().unwrap();
+    generate_rpm_packaging(&project_name)?;
     Ok(())
 }
 
 fn haproxy_389ds_rpm(config: &GeneralConfig) -> Result<()> {
-    let root_dir = get_project_root()?;
-    let misc_path = root_dir.join(MISC_DIR);
-    let cargo_toml = config.haproxy_project();
-
-    let rpm_builder = xtask_toolkit::package_rpm::Package::new(cargo_toml.clone())
-        .with_binary_src_archname(MUSL_DIR)
-        .with_user("haproxy-389ds-rs")
-        .with_group(COMMON_GROUP)
-        .with_systemd_unit(misc_path.join("haproxy-389ds-rs.service"))
-        .expect("Could not find systemd unit file")
-        .builder()?
-        .with_file(
-            misc_path.join("haproxy.sudoers"),
-            rpm::FileOptions::new("/etc/sudoers.d/haproxy-389ds-rs")
-                .mode(rpm::FileMode::regular(0o440))
-                .user("root"),
-        )?
-        .with_file(
-            misc_path.join("haproxy-389ds-rs.minimal.toml"),
-            rpm::FileOptions::new("/etc/o11y-389ds-rs/haproxy.example.toml")
-                .is_config_noreplace()
-                .mode(rpm::FileMode::regular(0o600))
-                .user("haproxy-389ds-rs"),
-        )?;
-
-    common_rpm_build(config, cargo_toml, rpm_builder)?;
-
+    let project_name = config.haproxy_project().name().unwrap();
+    generate_rpm_packaging(&project_name)?;
     Ok(())
 }
 
