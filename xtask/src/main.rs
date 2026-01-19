@@ -117,6 +117,12 @@ fn exporter_389ds_rpm(config: &GeneralConfig) -> Result<()> {
     Ok(())
 }
 
+fn haproxy_389ds_deb(config: &GeneralConfig) -> Result<()> {
+    let project = config.haproxy_project();
+    generate_deb_packaging(project)?;
+    Ok(())
+}
+
 fn haproxy_389ds_rpm(config: &GeneralConfig) -> Result<()> {
     let project = config.haproxy_project();
     generate_rpm_packaging(project)?;
@@ -372,8 +378,12 @@ fn main() -> Result<()> {
                 .inspect(|_| println!("Finished packaging exporter (rpm)"))?;
 
             haproxy_389ds_rpm(&general_config)
-                .inspect_err(|_| println!("Failed to package haproxy"))
-                .inspect(|_| println!("Finished packaging haproxy"))?;
+                .inspect_err(|_| println!("Failed to package haproxy (rpm)"))
+                .inspect(|_| println!("Finished packaging haproxy (rpm)"))?;
+
+            haproxy_389ds_deb(&general_config)
+                .inspect_err(|_| println!("Failed to package haproxy (deb)"))
+                .inspect(|_| println!("Finished packaging haproxy (deb)"))?;
 
             copy_binaries(&general_config)
                 .inspect_err(|_| println!("Failed to copy binaries"))
