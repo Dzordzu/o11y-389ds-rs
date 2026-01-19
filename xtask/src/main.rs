@@ -44,6 +44,33 @@ pub struct Package {
     pub description: String,
 }
 
+fn generate_deb_packaging(config: &CargoToml) -> Result<()> {
+    let name = config.name().unwrap();
+
+    let dist_dir = get_project_root()?.join("target").join("dist");
+
+    let filename = format!(
+        "{}.{}.deb",
+        config.versioned_name().unwrap(),
+        std::env::consts::ARCH
+    );
+
+    let dist_path = dist_dir.join(filename).to_string_lossy().to_string();
+
+    let cmd_result = std::process::Command::new("cargo-deb")
+        .args(["--target", MUSL_DIR])
+        .args(["-p", &name])
+        .args(["--output", &dist_path])
+        .output()?;
+
+    if !cmd_result.status.success() {
+        let err_msg = std::str::from_utf8(&cmd_result.stderr).unwrap().to_owned();
+        return Err(anyhow!("Generate DEB failed").context(err_msg));
+    }
+
+    Ok(())
+}
+
 fn generate_rpm_packaging(config: &CargoToml) -> Result<()> {
     let name = config.name().unwrap();
 
@@ -61,7 +88,8 @@ fn generate_rpm_packaging(config: &CargoToml) -> Result<()> {
         .args(["-a", MUSL_DIR])
         .args(["-p", &name])
         .args(["--output", &dist_path])
-        .output()?;
+        .output()
+        .context("Failed during cargo-generate-rpm")?;
 
     if !cmd_result.status.success() {
         let err_msg = std::str::from_utf8(&cmd_result.stderr).unwrap().to_owned();
@@ -86,6 +114,12 @@ fn exporter_389ds_rpm(config: &GeneralConfig) -> Result<()> {
 fn haproxy_389ds_rpm(config: &GeneralConfig) -> Result<()> {
     let project = config.haproxy_project();
     generate_rpm_packaging(project)?;
+    Ok(())
+}
+
+fn config_389ds_deb(config: &GeneralConfig) -> Result<()> {
+    let project = config.config_project();
+    generate_deb_packaging(project)?;
     Ok(())
 }
 
@@ -311,9 +345,13 @@ fn main() -> Result<()> {
                 .inspect_err(|_| println!("Failed to build for musl"))
                 .inspect(|_| println!("Built for musl"))?;
 
+            config_389ds_deb(&general_config)
+                .inspect_err(|_| println!("Failed to package config (deb)"))
+                .inspect(|_| println!("Finished packaging config (deb)"))?;
+
             config_389ds_rpm(&general_config)
-                .inspect_err(|_| println!("Failed to package config"))
-                .inspect(|_| println!("Finished packaging config"))?;
+                .inspect_err(|_| println!("Failed to package config (rpm)"))
+                .inspect(|_| println!("Finished packaging config (rpm)"))?;
 
             nagios_389ds_rpm(&general_config)
                 .inspect_err(|_| println!("Failed to package nagios"))

@@ -1,5 +1,4 @@
 IS_UPGRADED="$1"
-SYSTEMD_UNIT="exporter-389ds-rs.service"
 
 case "$IS_UPGRADED" in
   0) # This is a yum remove.

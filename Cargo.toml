@@ -1,6 +1,7 @@
 [workspace]
 resolver = "2"
 members = [
+   "config-389ds-rs",
    "exporter-389ds-rs",
    "haproxy-389ds-rs",
    "internal",
