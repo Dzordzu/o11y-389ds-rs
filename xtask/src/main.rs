@@ -2,14 +2,11 @@ use std::path::PathBuf;
 use xtask_toolkit::cargo::{get_project_root, CargoToml};
 use xtask_toolkit::checksums::ChecksumsToFile;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
 use xshell::{cmd, Shell};
 
-const COMMON_GROUP: &str = "o11y-389ds-rs";
 const MUSL_DIR: &str = "x86_64-unknown-linux-musl";
-const MISC_DIR: &str = "misc";
-
 #[derive(Subcommand, Clone, Debug)]
 pub enum CliCommand {
     Dist,
@@ -47,27 +44,23 @@ pub struct Package {
     pub description: String,
 }
 
-fn common_rpm_build(
-    config: &GeneralConfig,
-    cargo_toml: &CargoToml,
-    pkg: rpm::PackageBuilder,
-) -> Result<()> {
+fn generate_rpm_packaging(config: &CargoToml) -> Result<()> {
+    let name = config.name().unwrap();
+
+    let dist_dir = get_project_root()?.join("target").join("dist");
+
     let filename = format!(
         "{}.{}.rpm",
-        cargo_toml.versioned_name().unwrap(),
+        config.versioned_name().unwrap(),
         std::env::consts::ARCH
     );
-    std::fs::create_dir_all(&config.dist_files_dir)?;
-    pkg.build()?
-        .write_file(config.dist_files_dir.join(filename))?;
 
-    Ok(())
-}
+    let dist_path = dist_dir.join(filename).to_string_lossy().to_string();
 
-fn generate_rpm_packaging(name: &str) -> Result<()> {
     let cmd_result = std::process::Command::new("cargo-generate-rpm")
         .args(["-a", MUSL_DIR])
-        .args(["-p", name])
+        .args(["-p", &name])
+        .args(["--output", &dist_path])
         .output()?;
 
     if !cmd_result.status.success() {
@@ -79,44 +72,26 @@ fn generate_rpm_packaging(name: &str) -> Result<()> {
 }
 
 fn nagios_389ds_rpm(config: &GeneralConfig) -> Result<()> {
-    let project_name = config.nagios_project().name().unwrap();
-    generate_rpm_packaging(&project_name)?;
+    let project = config.nagios_project();
+    generate_rpm_packaging(project)?;
     Ok(())
 }
 
 fn exporter_389ds_rpm(config: &GeneralConfig) -> Result<()> {
-    let project_name = config.exporter_project().name().unwrap();
-    generate_rpm_packaging(&project_name)?;
+    let project = config.exporter_project();
+    generate_rpm_packaging(project)?;
     Ok(())
 }
 
 fn haproxy_389ds_rpm(config: &GeneralConfig) -> Result<()> {
-    let project_name = config.haproxy_project().name().unwrap();
-    generate_rpm_packaging(&project_name)?;
+    let project = config.haproxy_project();
+    generate_rpm_packaging(project)?;
     Ok(())
 }
 
 fn config_389ds_rpm(config: &GeneralConfig) -> Result<()> {
-    let root_dir = get_project_root()?;
-    let cargo_toml = config.config_project();
-    let misc_path = root_dir.join(cargo_toml.name().unwrap()).join(MISC_DIR);
-
-    let rpm_builder = xtask_toolkit::package_rpm::Package::new(cargo_toml.clone())
-        .dont_include_binary()
-        .keep_file_after_removal("/etc/o11y-389ds-rs/default.toml")
-        .with_group(COMMON_GROUP)
-        .builder()?
-        .with_file(
-            misc_path.join("default.toml"),
-            rpm::FileOptions::new("/etc/o11y-389ds-rs/default.toml")
-                .is_config_noreplace()
-                .mode(rpm::FileMode::regular(0o640))
-                .user("root")
-                .group("o11y-389ds-rs"),
-        )?;
-
-    common_rpm_build(config, cargo_toml, rpm_builder)?;
-
+    let project = config.config_project();
+    generate_rpm_packaging(project)?;
     Ok(())
 }
 
@@ -134,7 +109,8 @@ fn copy_binaries(config: &GeneralConfig) -> Result<()> {
         xtask_toolkit::targz::DirCompress::new(&config.release_target_dir)
             .expect("Could not create compressor")
             .filter_filename(binary_name)
-            .compress(&dist)?;
+            .compress(&dist)
+            .context(format!("Failed to compress dir ({})", binary_name))?;
     }
 
     Ok(())
@@ -172,7 +148,10 @@ fn generate_checksums_new(config: &GeneralConfig) -> Result<()> {
     }));
 
     for project in &config.projects {
-        if let Some(package_name) = project.versioned_name().and_then(|_| project.name()) {
+        if let Some(package_name) = project
+            .versioned_name()
+            .and_then(|_| project.versioned_name())
+        {
             let mut checksums = files_checksums
                 .iter()
                 .filter_map(|(k, v)| {
@@ -281,7 +260,7 @@ impl GeneralConfig {
         self.projects
             .iter()
             .find(|x| x.name().is_some_and(|x| x == "config-389ds-rs"))
-            .expect("o11y-389ds-rs not found")
+            .expect("config-389ds-rs not found")
     }
 
     pub fn exporter_project(&self) -> &CargoToml {

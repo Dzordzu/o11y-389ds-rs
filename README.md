@@ -354,6 +354,7 @@ cargo xtask dist
 * The binaries are made ONLY for linux based monitoring/389ds. They may work for
   other systems, but have not been tested.
 * `rustc` and `cargo`
+* `cargo-generate-rpm` and `cargo-deb`
 * The binaries are built against `musl` target
 
 ## Development
