@@ -1,3 +1,4 @@
+#!/bin/bash
 ACCOUNT_TO_CREATE="exporter-389ds-rs"
 GROUP_TO_CREATE="o11y-389ds-rs"
 

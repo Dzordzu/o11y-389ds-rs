@@ -1,9 +1,33 @@
 [package]
 name = "exporter-389ds-rs"
+authors = ["Tomasz Durda<tomekdur@wp.pl>"]
 version = "0.3.0"
 edition = "2021"
 license = "MIT"
 description = "389ds exporter for prometheus"
+
+   [package.metadata.deb]
+   maintainer-scripts = "misc/deb.maintainer-scripts"
+
+      [[package.metadata.deb.assets]]
+      dest = "/etc/systemd/system/exporter-389ds-rs.service"
+      mode = "644"
+      source = "misc/exporter-389ds-rs.service"
+
+      [[package.metadata.deb.assets]]
+      dest = "/usr/bin/exporter-389ds-rs"
+      mode = "755"
+      source = "target/release/exporter-389ds-rs"
+
+      [[package.metadata.deb.assets]]
+      dest = "/etc/sudoers.d/exporter-389ds-rs"
+      mode = "440"
+      source = "misc/exporter.sudoers"
+
+      [[package.metadata.deb.assets]]
+      dest = "/etc/o11y-389ds-rs/exporter.example.toml"
+      mode = "600"
+      source = "misc/exporter-389ds-rs.minimal.toml"
 
    [package.metadata.generate-rpm]
    pre_install_script = "exporter-389ds-rs/misc/rpm.preinstall.sh"

@@ -2,6 +2,7 @@
 name = "config-389ds-rs"
 authors = ["Tomasz Durda<tomekdur@wp.pl>"]
 version = "0.3.0"
+edition = "2021"
 license = "MIT"
 description = "Config package for 389ds exporter, haproxy and nagios"
 

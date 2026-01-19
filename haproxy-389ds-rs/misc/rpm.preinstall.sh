@@ -1,4 +1,4 @@
-ACCOUNT_TO_CREATE="haproxy-38d9s-rs"
+ACCOUNT_TO_CREATE="haproxy-389ds-rs"
 GROUP_TO_CREATE="o11y-389ds-rs"
 
 if [ -z "$(getent passwd | grep ${ACCOUNT_TO_CREATE})" ]; then 

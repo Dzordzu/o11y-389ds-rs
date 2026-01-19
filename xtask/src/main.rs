@@ -105,6 +105,12 @@ fn nagios_389ds_rpm(config: &GeneralConfig) -> Result<()> {
     Ok(())
 }
 
+fn exporter_389ds_deb(config: &GeneralConfig) -> Result<()> {
+    let project = config.exporter_project();
+    generate_deb_packaging(project)?;
+    Ok(())
+}
+
 fn exporter_389ds_rpm(config: &GeneralConfig) -> Result<()> {
     let project = config.exporter_project();
     generate_rpm_packaging(project)?;
@@ -357,9 +363,13 @@ fn main() -> Result<()> {
                 .inspect_err(|_| println!("Failed to package nagios"))
                 .inspect(|_| println!("Finished packaging nagios"))?;
 
+            exporter_389ds_deb(&general_config)
+                .inspect_err(|_| println!("Failed to package exporter (deb)"))
+                .inspect(|_| println!("Finished packaging exporter (deb)"))?;
+
             exporter_389ds_rpm(&general_config)
-                .inspect_err(|_| println!("Failed to package exporter"))
-                .inspect(|_| println!("Finished packaging exporter"))?;
+                .inspect_err(|_| println!("Failed to package exporter (rpm)"))
+                .inspect(|_| println!("Finished packaging exporter (rpm)"))?;
 
             haproxy_389ds_rpm(&general_config)
                 .inspect_err(|_| println!("Failed to package haproxy"))
