@@ -11,7 +11,7 @@ license = "MIT"
       [[package.metadata.deb.assets]]
       dest = "/etc/systemd/system/haproxy-389ds-rs.service"
       mode = "644"
-      source = "haproxy-389ds-rs/misc/haproxy-389ds-rs.service"
+      source = "misc/haproxy-389ds-rs.service"
 
       [[package.metadata.deb.assets]]
       dest = "/usr/bin/haproxy-389ds-rs"
@@ -21,12 +21,12 @@ license = "MIT"
       [[package.metadata.deb.assets]]
       dest = "/etc/sudoers.d/haproxy-389ds-rs"
       mode = "440"
-      source = "haproxy-389ds-rs/misc/haproxy.sudoers"
+      source = "misc/haproxy.sudoers"
 
       [[package.metadata.deb.assets]]
       dest = "/etc/o11y-389ds-rs/haproxy.example.toml"
       mode = "600"
-      source = "haproxy-389ds-rs/misc/haproxy-389ds-rs.minimal.toml"
+      source = "misc/haproxy-389ds-rs.minimal.toml"
 
    [package.metadata.generate-rpm]
    pre_install_script = "haproxy-389ds-rs/misc/rpm.preinstall.sh"

@@ -61,6 +61,7 @@ fn generate_deb_packaging(config: &CargoToml) -> Result<()> {
         .args(["--target", MUSL_DIR])
         .args(["-p", &name])
         .args(["--output", &dist_path])
+        .arg("--no-build")
         .output()?;
 
     if !cmd_result.status.success() {
@@ -96,6 +97,12 @@ fn generate_rpm_packaging(config: &CargoToml) -> Result<()> {
         return Err(anyhow!("Generate RPM failed").context(err_msg));
     }
 
+    Ok(())
+}
+
+fn nagios_389ds_deb(config: &GeneralConfig) -> Result<()> {
+    let project = config.nagios_project();
+    generate_rpm_packaging(project)?;
     Ok(())
 }
 
@@ -365,9 +372,13 @@ fn main() -> Result<()> {
                 .inspect_err(|_| println!("Failed to package config (rpm)"))
                 .inspect(|_| println!("Finished packaging config (rpm)"))?;
 
+            nagios_389ds_deb(&general_config)
+                .inspect_err(|_| println!("Failed to package nagios (deb)"))
+                .inspect(|_| println!("Finished packaging nagios (deb)"))?;
+
             nagios_389ds_rpm(&general_config)
-                .inspect_err(|_| println!("Failed to package nagios"))
-                .inspect(|_| println!("Finished packaging nagios"))?;
+                .inspect_err(|_| println!("Failed to package nagios (rpm)"))
+                .inspect(|_| println!("Finished packaging nagios (rpm)"))?;
 
             exporter_389ds_deb(&general_config)
                 .inspect_err(|_| println!("Failed to package exporter (deb)"))
@@ -377,13 +388,13 @@ fn main() -> Result<()> {
                 .inspect_err(|_| println!("Failed to package exporter (rpm)"))
                 .inspect(|_| println!("Finished packaging exporter (rpm)"))?;
 
-            haproxy_389ds_rpm(&general_config)
-                .inspect_err(|_| println!("Failed to package haproxy (rpm)"))
-                .inspect(|_| println!("Finished packaging haproxy (rpm)"))?;
-
             haproxy_389ds_deb(&general_config)
                 .inspect_err(|_| println!("Failed to package haproxy (deb)"))
                 .inspect(|_| println!("Finished packaging haproxy (deb)"))?;
+
+            haproxy_389ds_rpm(&general_config)
+                .inspect_err(|_| println!("Failed to package haproxy (rpm)"))
+                .inspect(|_| println!("Finished packaging haproxy (rpm)"))?;
 
             copy_binaries(&general_config)
                 .inspect_err(|_| println!("Failed to copy binaries"))
