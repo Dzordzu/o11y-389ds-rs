@@ -48,7 +48,7 @@ See [building](#building-and-packaging) section
 ### Binaries and packages
 
 Each tag is also a release. The package is manually built and uploaded.
-Currently, we only support RPM based package managers (dnf/yum). See
+Currently, we only support RPM and DEB based package managers (dnf/yum/apt). See
 [releases](https://github.com/dzordzu/o11y-389ds-rs/releases).
 
 ## Observability
