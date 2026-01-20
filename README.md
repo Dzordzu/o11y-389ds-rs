@@ -16,6 +16,7 @@
     * [From source](#from-source)
     * [Binaries and packages](#binaries-and-packages)
 * [Observability](#observability)
+    * [Config package](#config-package)
     * [Supported features](#supported-features)
     * [Grafana dashboards](#grafana-dashboards)
     * [Exporter usage](#exporter-usage)
@@ -58,6 +59,10 @@ This repository contains the following projects
 * `exporter-389ds-rs`: Prometheus exporter for the 389ds
 * `nagios-389ds-rs`: Nagios plugin for the 389ds.
 * `haproxy-389ds-rs`: HAProxy healthcheck plugin for the 389ds
+
+### Config package
+
+We also provide a separate config with predefined configuration - `config-389ds-rs`
 
 ### Supported features
 
