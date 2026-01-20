@@ -102,7 +102,7 @@ fn generate_rpm_packaging(config: &CargoToml) -> Result<()> {
 
 fn nagios_389ds_deb(config: &GeneralConfig) -> Result<()> {
     let project = config.nagios_project();
-    generate_rpm_packaging(project)?;
+    generate_deb_packaging(project)?;
     Ok(())
 }
 

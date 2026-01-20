@@ -1,7 +1,8 @@
 [package]
 name = "haproxy-389ds-rs"
 description = "HAProxy agent for 389ds"
-version = "0.3.0"
+authors = ["Tomasz Durda<tomekdur@wp.pl>"]
+version = "0.3.0-rc01"
 edition = "2021"
 license = "MIT"
 
