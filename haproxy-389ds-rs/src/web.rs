@@ -1,5 +1,5 @@
 use crate::AppState;
-use actix_web::{App, HttpServer, get, post, web};
+use actix_web::{get, post, web, App, HttpResponse, HttpServer};
 use serde::{Deserialize, Serialize};
 use utoipa::OpenApi;
 use utoipa_actix_web::AppExt;
@@ -19,10 +19,10 @@ pub type Data = web::Data<AppState>;
 /// Set zero connections
 async fn drain(data: web::Data<AppState>) -> web::Json<crate::Health> {
     let mut data = data.lock().await;
-    data.health.disabled.mark_drain = true;
-    data.health.disabled.mark_hard_maint = false;
-    data.health.disabled.mark_soft_maint = false;
-    data.health.disabled.mark_stopped = false;
+    data.health.markings.mark_drain = true;
+    data.health.markings.mark_hard_maint = false;
+    data.health.markings.mark_soft_maint = false;
+    data.health.markings.mark_stopped = false;
 
     web::Json(data.health.clone())
 }
@@ -40,10 +40,10 @@ async fn drain(data: web::Data<AppState>) -> web::Json<crate::Health> {
 /// Set zero connections
 async fn stop(data: web::Data<AppState>) -> web::Json<crate::Health> {
     let mut data = data.lock().await;
-    data.health.disabled.mark_drain = false;
-    data.health.disabled.mark_hard_maint = false;
-    data.health.disabled.mark_soft_maint = false;
-    data.health.disabled.mark_stopped = true;
+    data.health.markings.mark_drain = false;
+    data.health.markings.mark_hard_maint = false;
+    data.health.markings.mark_soft_maint = false;
+    data.health.markings.mark_stopped = true;
 
     web::Json(data.health.clone())
 }
@@ -73,10 +73,10 @@ async fn maint(
     data: web::Data<AppState>,
 ) -> web::Json<crate::Health> {
     let mut data = data.lock().await;
-    data.health.disabled.mark_drain = false;
-    data.health.disabled.mark_hard_maint = !params.force;
-    data.health.disabled.mark_soft_maint = true;
-    data.health.disabled.mark_stopped = false;
+    data.health.markings.mark_drain = false;
+    data.health.markings.mark_hard_maint = !params.force;
+    data.health.markings.mark_soft_maint = true;
+    data.health.markings.mark_stopped = false;
 
     web::Json(data.health.clone())
 }
@@ -95,10 +95,10 @@ async fn maint(
 /// Set server as up and ready. Removed /stop, /maintenance and /drain
 async fn ready(data: web::Data<AppState>) -> web::Json<crate::Health> {
     let mut data = data.lock().await;
-    data.health.disabled.mark_drain = false;
-    data.health.disabled.mark_hard_maint = false;
-    data.health.disabled.mark_soft_maint = false;
-    data.health.disabled.mark_stopped = false;
+    data.health.markings.mark_drain = false;
+    data.health.markings.mark_hard_maint = false;
+    data.health.markings.mark_soft_maint = false;
+    data.health.markings.mark_stopped = false;
 
     web::Json(data.health.clone())
 }
@@ -109,14 +109,35 @@ async fn ready(data: web::Data<AppState>) -> web::Json<crate::Health> {
             status = 200,
             description = "Get health details of the HAProxy 389ds agent",
             body = crate::Health
+        ),
+        (
+            status = 500,
+            description = "Any query health check failed",
+            body = crate::Health
+        ),
+        (
+            status = 503,
+            description = "Systemd or instance are not reachable",
+            body = crate::Health
         )
     )
 )]
 #[get("/health-status")]
 /// Check if server is already drained
-async fn get_status(data: web::Data<AppState>) -> web::Json<crate::Health> {
+async fn get_status(data: web::Data<AppState>) -> HttpResponse {
     let data = data.lock().await;
-    web::Json(data.health.clone())
+
+    let any_query_failed = data.health.status.queries_status.iter().any(|x| !x.1);
+    let instances_reachable =
+        data.health.status.is_reachable && data.health.status.is_systemd_running;
+
+    if !instances_reachable {
+        HttpResponse::ServiceUnavailable().json(web::Json(data.health.clone()))
+    } else if any_query_failed {
+        HttpResponse::InternalServerError().json(web::Json(data.health.clone()))
+    } else {
+        HttpResponse::Ok().json(web::Json(data.health.clone()))
+    }
 }
 
 #[derive(Deserialize, Serialize, utoipa::ToSchema, utoipa::IntoParams)]

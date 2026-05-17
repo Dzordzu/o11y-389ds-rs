@@ -1,9 +1,63 @@
 [package]
 name = "exporter-389ds-rs"
-version = "0.2.3"
+authors = ["Tomasz Durda<tomekdur@wp.pl>"]
+version = "0.3.0-rc02"
 edition = "2021"
 license = "MIT"
 description = "389ds exporter for prometheus"
+
+   [package.metadata.deb]
+   maintainer-scripts = "misc/deb.maintainer-scripts"
+
+      [[package.metadata.deb.assets]]
+      dest = "/etc/systemd/system/exporter-389ds-rs.service"
+      mode = "644"
+      source = "misc/exporter-389ds-rs.service"
+
+      [[package.metadata.deb.assets]]
+      dest = "/usr/bin/exporter-389ds-rs"
+      mode = "755"
+      source = "target/release/exporter-389ds-rs"
+
+      [[package.metadata.deb.assets]]
+      dest = "/etc/sudoers.d/exporter-389ds-rs"
+      mode = "440"
+      source = "misc/exporter.sudoers"
+
+      [[package.metadata.deb.assets]]
+      dest = "/etc/o11y-389ds-rs/exporter.example.toml"
+      mode = "600"
+      source = "misc/exporter-389ds-rs.minimal.toml"
+
+   [package.metadata.generate-rpm]
+   pre_install_script = "exporter-389ds-rs/misc/rpm.preinstall.sh"
+   post_install_script = "exporter-389ds-rs/misc/rpm.postinstall.sh"
+   pre_uninstall_script = "exporter-389ds-rs/misc/rpm.preuninstall.sh"
+   post_uninstall_script = "exporter-389ds-rs/misc/rpm.postuninstall.sh"
+
+      [[package.metadata.generate-rpm.assets]]
+      dest = "/etc/systemd/system/exporter-389ds-rs.service"
+      mode = "644"
+      source = "misc/exporter-389ds-rs.service"
+      config = true
+
+      [[package.metadata.generate-rpm.assets]]
+      dest = "/usr/bin/exporter-389ds-rs"
+      mode = "755"
+      source = "target/x86_64-unknown-linux-musl/release/exporter-389ds-rs"
+
+      [[package.metadata.generate-rpm.assets]]
+      dest = "/etc/sudoers.d/exporter-389ds-rs"
+      mode = "440"
+      source = "exporter-389ds-rs/misc/exporter.sudoers"
+      user = "root"
+
+      [[package.metadata.generate-rpm.assets]]
+      dest = "/etc/o11y-389ds-rs/exporter.example.toml"
+      mode = "600"
+      source = "exporter-389ds-rs/misc/exporter-389ds-rs.minimal.toml"
+      user = "exporter-389ds-rs"
+      config = true
 
 [dependencies]
 anyhow = { workspace = true }

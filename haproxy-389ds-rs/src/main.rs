@@ -8,7 +8,7 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use cli::{ArgFlag, Args};
 use config::Config;
-use internal::{Bind, query::CustomQuery};
+use internal::{self, query::CustomQuery, Bind};
 use ldap_health::Health;
 use std::sync::Arc;
 use tokio::{
@@ -47,11 +47,18 @@ pub async fn accessibility_loop(
     tracing::info!("Starting 389ds accessibility checks");
 
     loop {
-        if let Err(error) = check_ldap_connection(&config).await {
-            tracing::error!("Error: {}", error);
-            app_state.lock().await.health.status.is_reachable = false;
-        } else {
-            app_state.lock().await.health.status.is_reachable = true;
+        match check_ldap_connection(&config).await {
+            Err(error) => {
+                tracing::error!("Error: {}", error);
+                let mut app_state = app_state.lock().await;
+                app_state.health.status.is_reachable = false;
+                app_state.health.status.connection_number = None;
+            }
+            Ok(conn) => {
+                let mut app_state = app_state.lock().await;
+                app_state.health.status.is_reachable = true;
+                app_state.health.status.connection_number = Some(conn);
+            }
         }
 
         select! {
@@ -111,9 +118,17 @@ pub async fn systemd_status_loop(
 
 pub type AppState = Arc<Mutex<AppStateBase>>;
 
-pub async fn check_ldap_connection(config: &config::Config) -> Result<()> {
-    config.common.ldap_config.connect().await?;
-    Ok(())
+pub async fn check_ldap_connection(config: &config::Config) -> Result<u64> {
+    let mut ldap = config.common.ldap_config.connect().await?;
+    let ldap_connections = internal::monitor::LdapMonitor::scrape(&mut ldap).await?;
+
+    let mut by_ip = ldap_connections.connections.group_by_ip();
+
+    // count non local, and non empty ip connections
+    by_ip.remove("local");
+    by_ip.remove("");
+
+    Ok(by_ip.into_values().sum())
 }
 
 pub async fn handle_query(

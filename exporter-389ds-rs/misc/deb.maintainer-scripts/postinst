@@ -1,0 +1,8 @@
+#!/bin/bash
+DEFAULT_USER="exporter-389ds-rs"
+DEFAULT_GROUP="o11y-389ds-rs"
+
+chown ${DEFAULT_USER}:${DEFAULT_GROUP} /etc/o11y-389ds-rs/exporter.example.toml
+chown root /etc/sudoers.d/exporter-389ds-rs
+
+systemctl daemon-reload

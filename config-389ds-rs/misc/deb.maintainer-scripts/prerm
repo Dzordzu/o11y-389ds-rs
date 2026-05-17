@@ -1,0 +1,2 @@
+#!/bin/bash
+cp /etc/o11y-389ds-rs/default.toml /etc/o11y-389ds-rs/default.toml.$(date '+%Y-%m-%d').debsave

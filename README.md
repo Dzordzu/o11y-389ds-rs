@@ -16,6 +16,7 @@
     * [From source](#from-source)
     * [Binaries and packages](#binaries-and-packages)
 * [Observability](#observability)
+    * [Config package](#config-package)
     * [Supported features](#supported-features)
     * [Grafana dashboards](#grafana-dashboards)
     * [Exporter usage](#exporter-usage)
@@ -48,7 +49,7 @@ See [building](#building-and-packaging) section
 ### Binaries and packages
 
 Each tag is also a release. The package is manually built and uploaded.
-Currently, we only support RPM based package managers (dnf/yum). See
+Currently, we only support RPM and DEB based package managers (dnf/yum/apt). See
 [releases](https://github.com/dzordzu/o11y-389ds-rs/releases).
 
 ## Observability
@@ -58,6 +59,10 @@ This repository contains the following projects
 * `exporter-389ds-rs`: Prometheus exporter for the 389ds
 * `nagios-389ds-rs`: Nagios plugin for the 389ds.
 * `haproxy-389ds-rs`: HAProxy healthcheck plugin for the 389ds
+
+### Config package
+
+We also provide a separate config with predefined configuration - `config-389ds-rs`
 
 ### Supported features
 
@@ -354,6 +359,7 @@ cargo xtask dist
 * The binaries are made ONLY for linux based monitoring/389ds. They may work for
   other systems, but have not been tested.
 * `rustc` and `cargo`
+* `cargo-generate-rpm` and `cargo-deb`
 * The binaries are built against `musl` target
 
 ## Development

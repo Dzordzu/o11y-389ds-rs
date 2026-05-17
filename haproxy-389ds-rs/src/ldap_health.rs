@@ -28,7 +28,7 @@ pub struct LdapStatus {
 
 #[derive(Debug, Clone, Deserialize, Serialize, utoipa::ToResponse, utoipa::ToSchema)]
 pub struct Health {
-    pub disabled: NodeDisabled,
+    pub markings: NodeDisabled,
     pub status: LdapStatus,
 }
 
@@ -41,7 +41,7 @@ impl Default for Health {
 impl Health {
     pub fn new() -> Self {
         Health {
-            disabled: NodeDisabled {
+            markings: NodeDisabled {
                 mark_drain: false,
                 mark_soft_maint: false,
                 mark_hard_maint: false,
@@ -96,13 +96,13 @@ impl Health {
         let mut recover = true;
 
         // Allow errors to override drain status
-        if self.disabled.mark_drain {
+        if self.markings.mark_drain {
             response.drain();
             recover = false;
         }
 
         // Allow errors in case of soft maintenance
-        if self.disabled.mark_soft_maint {
+        if self.markings.mark_soft_maint {
             response.maintenance();
             recover = false;
         }
@@ -110,13 +110,13 @@ impl Health {
         self._ths_errors(response, &mut recover);
 
         // Skip errors in case of hard maintenance
-        if self.disabled.mark_hard_maint {
+        if self.markings.mark_hard_maint {
             response.maintenance();
             recover = false;
         }
 
         // Skip errors in case of stopped
-        if self.disabled.mark_stopped {
+        if self.markings.mark_stopped {
             response.stopped(Some("server stopped by operator"));
             recover = false;
         }

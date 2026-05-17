@@ -2,14 +2,11 @@ use std::path::PathBuf;
 use xtask_toolkit::cargo::{get_project_root, CargoToml};
 use xtask_toolkit::checksums::ChecksumsToFile;
 
-use anyhow::{anyhow, Result};
+use anyhow::{anyhow, Context, Result};
 use clap::{Parser, Subcommand};
 use xshell::{cmd, Shell};
 
-const COMMON_GROUP: &str = "o11y-389ds-rs";
 const MUSL_DIR: &str = "x86_64-unknown-linux-musl";
-const MISC_DIR: &str = "misc";
-
 #[derive(Subcommand, Clone, Debug)]
 pub enum CliCommand {
     Dist,
@@ -47,128 +44,107 @@ pub struct Package {
     pub description: String,
 }
 
-fn common_rpm_build(
-    config: &GeneralConfig,
-    cargo_toml: &CargoToml,
-    pkg: rpm::PackageBuilder,
-) -> Result<()> {
+fn generate_deb_packaging(config: &CargoToml) -> Result<()> {
+    let name = config.name().unwrap();
+
+    let dist_dir = get_project_root()?.join("target").join("dist");
+
     let filename = format!(
-        "{}.{}.rpm",
-        cargo_toml.versioned_name().unwrap(),
+        "{}.{}.deb",
+        config.versioned_name().unwrap(),
         std::env::consts::ARCH
     );
-    std::fs::create_dir_all(&config.dist_files_dir)?;
-    pkg.build()?
-        .write_file(config.dist_files_dir.join(filename))?;
 
+    let dist_path = dist_dir.join(filename).to_string_lossy().to_string();
+
+    let cmd_result = std::process::Command::new("cargo-deb")
+        .args(["--target", MUSL_DIR])
+        .args(["-p", &name])
+        .args(["--output", &dist_path])
+        .arg("--no-build")
+        .output()?;
+
+    if !cmd_result.status.success() {
+        let err_msg = std::str::from_utf8(&cmd_result.stderr).unwrap().to_owned();
+        return Err(anyhow!("Generate DEB failed").context(err_msg));
+    }
+
+    Ok(())
+}
+
+fn generate_rpm_packaging(config: &CargoToml) -> Result<()> {
+    let name = config.name().unwrap();
+
+    let dist_dir = get_project_root()?.join("target").join("dist");
+
+    let filename = format!(
+        "{}.{}.rpm",
+        config.versioned_name().unwrap(),
+        std::env::consts::ARCH
+    );
+
+    let dist_path = dist_dir.join(filename).to_string_lossy().to_string();
+
+    let cmd_result = std::process::Command::new("cargo-generate-rpm")
+        .args(["-a", MUSL_DIR])
+        .args(["-p", &name])
+        .args(["--output", &dist_path])
+        .output()
+        .context("Failed during cargo-generate-rpm")?;
+
+    if !cmd_result.status.success() {
+        let err_msg = std::str::from_utf8(&cmd_result.stderr).unwrap().to_owned();
+        return Err(anyhow!("Generate RPM failed").context(err_msg));
+    }
+
+    Ok(())
+}
+
+fn nagios_389ds_deb(config: &GeneralConfig) -> Result<()> {
+    let project = config.nagios_project();
+    generate_deb_packaging(project)?;
     Ok(())
 }
 
 fn nagios_389ds_rpm(config: &GeneralConfig) -> Result<()> {
-    let misc_path = get_project_root()?.join(MISC_DIR);
+    let project = config.nagios_project();
+    generate_rpm_packaging(project)?;
+    Ok(())
+}
 
-    let cargo_toml = config.nagios_project();
-
-    let rpm_builder = xtask_toolkit::package_rpm::Package::new(cargo_toml.clone())
-        .with_binary_destination("/usr/lib64/nagios/plugins/")
-        .with_binary_filename("check_389ds_rs")
-        .with_binary_src_archname(MUSL_DIR)
-        .builder()?
-        .with_file(
-            misc_path.join("nagios.sudoers"),
-            rpm::FileOptions::new("/etc/sudoers.d/nagios-389ds-rs")
-                .mode(rpm::FileMode::regular(0o440))
-                .user("root"),
-        )?;
-
-    common_rpm_build(config, cargo_toml, rpm_builder)?;
-
+fn exporter_389ds_deb(config: &GeneralConfig) -> Result<()> {
+    let project = config.exporter_project();
+    generate_deb_packaging(project)?;
     Ok(())
 }
 
 fn exporter_389ds_rpm(config: &GeneralConfig) -> Result<()> {
-    let root_dir = get_project_root()?;
-    let misc_path = root_dir.join(MISC_DIR);
-    let cargo_toml = config.exporter_project();
+    let project = config.exporter_project();
+    generate_rpm_packaging(project)?;
+    Ok(())
+}
 
-    let rpm_builder = xtask_toolkit::package_rpm::Package::new(cargo_toml.clone())
-        .with_binary_src_archname(MUSL_DIR)
-        .with_user("exporter-389ds-rs".to_string())
-        .with_group(COMMON_GROUP)
-        .with_systemd_unit(misc_path.join("exporter-389ds-rs.service"))
-        .expect("Could not find systemd unit file")
-        .builder()?
-        .with_file(
-            misc_path.join("exporter.sudoers"),
-            rpm::FileOptions::new("/etc/sudoers.d/exporter-389ds-rs")
-                .mode(rpm::FileMode::regular(0o440))
-                .user("root"),
-        )?
-        .with_file(
-            misc_path.join("exporter-389ds-rs.minimal.toml"),
-            rpm::FileOptions::new("/etc/o11y-389ds-rs/exporter.example.toml")
-                .is_config_noreplace()
-                .mode(rpm::FileMode::regular(0o600))
-                .user("exporter-389ds-rs"),
-        )?;
-
-    common_rpm_build(config, cargo_toml, rpm_builder)?;
-
+fn haproxy_389ds_deb(config: &GeneralConfig) -> Result<()> {
+    let project = config.haproxy_project();
+    generate_deb_packaging(project)?;
     Ok(())
 }
 
 fn haproxy_389ds_rpm(config: &GeneralConfig) -> Result<()> {
-    let root_dir = get_project_root()?;
-    let misc_path = root_dir.join(MISC_DIR);
-    let cargo_toml = config.haproxy_project();
+    let project = config.haproxy_project();
+    generate_rpm_packaging(project)?;
+    Ok(())
+}
 
-    let rpm_builder = xtask_toolkit::package_rpm::Package::new(cargo_toml.clone())
-        .with_binary_src_archname(MUSL_DIR)
-        .with_user("haproxy-389ds-rs")
-        .with_group(COMMON_GROUP)
-        .with_systemd_unit(misc_path.join("haproxy-389ds-rs.service"))
-        .expect("Could not find systemd unit file")
-        .builder()?
-        .with_file(
-            misc_path.join("haproxy.sudoers"),
-            rpm::FileOptions::new("/etc/sudoers.d/haproxy-389ds-rs")
-                .mode(rpm::FileMode::regular(0o440))
-                .user("root"),
-        )?
-        .with_file(
-            misc_path.join("haproxy-389ds-rs.minimal.toml"),
-            rpm::FileOptions::new("/etc/o11y-389ds-rs/haproxy.example.toml")
-                .is_config_noreplace()
-                .mode(rpm::FileMode::regular(0o600))
-                .user("haproxy-389ds-rs"),
-        )?;
-
-    common_rpm_build(config, cargo_toml, rpm_builder)?;
-
+fn config_389ds_deb(config: &GeneralConfig) -> Result<()> {
+    let project = config.config_project();
+    generate_deb_packaging(project)?;
     Ok(())
 }
 
 fn config_389ds_rpm(config: &GeneralConfig) -> Result<()> {
-    let root_dir = get_project_root()?;
-    let misc_path = root_dir.join(MISC_DIR);
-    let cargo_toml = config.config_project();
-
-    let rpm_builder = xtask_toolkit::package_rpm::Package::new(cargo_toml.clone())
-        .dont_include_binary()
-        .keep_file_after_removal("/etc/o11y-389ds-rs/default.toml")
-        .with_group(COMMON_GROUP)
-        .builder()?
-        .with_file(
-            misc_path.join("default.toml"),
-            rpm::FileOptions::new("/etc/o11y-389ds-rs/default.toml")
-                .is_config_noreplace()
-                .mode(rpm::FileMode::regular(0o640))
-                .user("root")
-                .group("o11y-389ds-rs"),
-        )?;
-
-    common_rpm_build(config, cargo_toml, rpm_builder)?;
-
+    let project = config.config_project();
+    generate_rpm_packaging(project)?;
     Ok(())
 }
 
@@ -186,7 +162,8 @@ fn copy_binaries(config: &GeneralConfig) -> Result<()> {
         xtask_toolkit::targz::DirCompress::new(&config.release_target_dir)
             .expect("Could not create compressor")
             .filter_filename(binary_name)
-            .compress(&dist)?;
+            .compress(&dist)
+            .context(format!("Failed to compress dir ({})", binary_name))?;
     }
 
     Ok(())
@@ -224,7 +201,10 @@ fn generate_checksums_new(config: &GeneralConfig) -> Result<()> {
     }));
 
     for project in &config.projects {
-        if let Some(package_name) = project.versioned_name().and_then(|_| project.name()) {
+        if let Some(package_name) = project
+            .versioned_name()
+            .and_then(|_| project.versioned_name())
+        {
             let mut checksums = files_checksums
                 .iter()
                 .filter_map(|(k, v)| {
@@ -333,7 +313,7 @@ impl GeneralConfig {
         self.projects
             .iter()
             .find(|x| x.name().is_some_and(|x| x == "config-389ds-rs"))
-            .expect("o11y-389ds-rs not found")
+            .expect("config-389ds-rs not found")
     }
 
     pub fn exporter_project(&self) -> &CargoToml {
@@ -384,21 +364,37 @@ fn main() -> Result<()> {
                 .inspect_err(|_| println!("Failed to build for musl"))
                 .inspect(|_| println!("Built for musl"))?;
 
+            config_389ds_deb(&general_config)
+                .inspect_err(|_| println!("Failed to package config (deb)"))
+                .inspect(|_| println!("Finished packaging config (deb)"))?;
+
             config_389ds_rpm(&general_config)
-                .inspect_err(|_| println!("Failed to package config"))
-                .inspect(|_| println!("Finished packaging config"))?;
+                .inspect_err(|_| println!("Failed to package config (rpm)"))
+                .inspect(|_| println!("Finished packaging config (rpm)"))?;
+
+            nagios_389ds_deb(&general_config)
+                .inspect_err(|_| println!("Failed to package nagios (deb)"))
+                .inspect(|_| println!("Finished packaging nagios (deb)"))?;
 
             nagios_389ds_rpm(&general_config)
-                .inspect_err(|_| println!("Failed to package nagios"))
-                .inspect(|_| println!("Finished packaging nagios"))?;
+                .inspect_err(|_| println!("Failed to package nagios (rpm)"))
+                .inspect(|_| println!("Finished packaging nagios (rpm)"))?;
+
+            exporter_389ds_deb(&general_config)
+                .inspect_err(|_| println!("Failed to package exporter (deb)"))
+                .inspect(|_| println!("Finished packaging exporter (deb)"))?;
 
             exporter_389ds_rpm(&general_config)
-                .inspect_err(|_| println!("Failed to package exporter"))
-                .inspect(|_| println!("Finished packaging exporter"))?;
+                .inspect_err(|_| println!("Failed to package exporter (rpm)"))
+                .inspect(|_| println!("Finished packaging exporter (rpm)"))?;
+
+            haproxy_389ds_deb(&general_config)
+                .inspect_err(|_| println!("Failed to package haproxy (deb)"))
+                .inspect(|_| println!("Finished packaging haproxy (deb)"))?;
 
             haproxy_389ds_rpm(&general_config)
-                .inspect_err(|_| println!("Failed to package haproxy"))
-                .inspect(|_| println!("Finished packaging haproxy"))?;
+                .inspect_err(|_| println!("Failed to package haproxy (rpm)"))
+                .inspect(|_| println!("Finished packaging haproxy (rpm)"))?;
 
             copy_binaries(&general_config)
                 .inspect_err(|_| println!("Failed to copy binaries"))

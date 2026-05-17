@@ -1,9 +1,23 @@
 [package]
 name = "nagios-389ds-rs"
-version = "0.2.4"
+authors = ["Tomasz Durda<tomekdur@wp.pl>"]
+version = "0.3.0-rc02"
 edition = "2021"
 license = "MIT"
 description = "nagios checks for 389ds"
+
+   [package.metadata.deb]
+   assets = [
+      { source = "target/release/nagios-389ds-rs", dest = "/usr/lib64/nagios/plugins/check_389ds_rs", mode = "755" },
+      { source = "misc/nagios.sudoers", dest = "/etc/sudoers.d/nagios-389ds-rs", mode = "440" },
+   ]
+
+
+   [package.metadata.generate-rpm]
+   assets = [
+      { source = "target/x86_64-unknown-linux-musl/release/nagios-389ds-rs", dest = "/usr/lib64/nagios/plugins/check_389ds_rs", mode = "755" },
+      { source = "nagios-389ds-rs/misc/nagios.sudoers", dest = "/etc/sudoers.d/nagios-389ds-rs", mode = "440", user = "root" },
+   ]
 
 [dependencies]
 clap = { workspace = true }

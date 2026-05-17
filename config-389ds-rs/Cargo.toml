@@ -1,0 +1,27 @@
+[package]
+name = "config-389ds-rs"
+authors = ["Tomasz Durda<tomekdur@wp.pl>"]
+version = "0.3.0-rc02"
+edition = "2021"
+license = "MIT"
+description = "Config package for 389ds exporter, haproxy and nagios"
+
+   [package.metadata.deb]
+   maintainer-scripts = "misc/deb.maintainer-scripts"
+
+      [[package.metadata.deb.assets]]
+      dest = "/etc/o11y-389ds-rs/default.toml"
+      mode = "640"
+      source = "misc/default.toml"
+
+   [package.metadata.generate-rpm]
+   pre_uninstall_script = "config-389ds-rs/misc/rpm.preuninstall.sh"
+   pre_install_script = "config-389ds-rs/misc/rpm.preinstall.sh"
+
+      [[package.metadata.generate-rpm.assets]]
+      dest = "/etc/o11y-389ds-rs/default.toml"
+      mode = "640"
+      source = "config-389ds-rs/misc/default.toml"
+      user = "root"
+      group = "o11y-389ds-rs"
+      config = true

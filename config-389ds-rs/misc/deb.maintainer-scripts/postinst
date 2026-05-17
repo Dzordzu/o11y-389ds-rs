@@ -1,0 +1,4 @@
+#!/bin/bash
+DEFAULT_GROUP="o11y-389ds-rs"
+
+chown root:${DEFAULT_GROUP} /etc/o11y-389ds-rs/default.toml
