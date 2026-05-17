@@ -2,7 +2,7 @@
 name = "haproxy-389ds-rs"
 description = "HAProxy agent for 389ds"
 authors = ["Tomasz Durda<tomekdur@wp.pl>"]
-version = "0.3.0-rc01"
+version = "0.3.0-rc02"
 edition = "2021"
 license = "MIT"
 
@@ -70,7 +70,7 @@ tracing-subscriber = { workspace = true }
 anyhow = { workspace = true }
 internal = { path = "../internal" }
 tokio-util = { workspace = true }
-actix-web = "4.12.1"
-utoipa = { version = "5.4.0", features = ["actix_extras"] }
+actix-web = "4.13.0"
+utoipa = { version = "5.5.0", features = ["actix_extras"] }
 utoipa-swagger-ui = { version = "9", features = ["actix-web"] }
 utoipa-actix-web = "0.1.2"

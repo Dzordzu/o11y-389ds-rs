@@ -1,5 +1,5 @@
 [package]
 name = "grafana-389ds-rs"
-version = "0.3.0-rc01"
+version = "0.3.0-rc02"
 license = "MIT"
 description = "389ds exporter for prometheus"
