@@ -76,6 +76,7 @@ pub struct LdapConnection {
     pub ip: String,
 }
 
+/// list of (<dn>: <ip>)
 pub struct LdapConnections(Vec<LdapConnection>);
 impl LdapConnections {
     pub fn count(&self) -> usize {

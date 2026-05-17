@@ -19,10 +19,10 @@ pub type Data = web::Data<AppState>;
 /// Set zero connections
 async fn drain(data: web::Data<AppState>) -> web::Json<crate::Health> {
     let mut data = data.lock().await;
-    data.health.disabled.mark_drain = true;
-    data.health.disabled.mark_hard_maint = false;
-    data.health.disabled.mark_soft_maint = false;
-    data.health.disabled.mark_stopped = false;
+    data.health.markings.mark_drain = true;
+    data.health.markings.mark_hard_maint = false;
+    data.health.markings.mark_soft_maint = false;
+    data.health.markings.mark_stopped = false;
 
     web::Json(data.health.clone())
 }
@@ -40,10 +40,10 @@ async fn drain(data: web::Data<AppState>) -> web::Json<crate::Health> {
 /// Set zero connections
 async fn stop(data: web::Data<AppState>) -> web::Json<crate::Health> {
     let mut data = data.lock().await;
-    data.health.disabled.mark_drain = false;
-    data.health.disabled.mark_hard_maint = false;
-    data.health.disabled.mark_soft_maint = false;
-    data.health.disabled.mark_stopped = true;
+    data.health.markings.mark_drain = false;
+    data.health.markings.mark_hard_maint = false;
+    data.health.markings.mark_soft_maint = false;
+    data.health.markings.mark_stopped = true;
 
     web::Json(data.health.clone())
 }
@@ -73,10 +73,10 @@ async fn maint(
     data: web::Data<AppState>,
 ) -> web::Json<crate::Health> {
     let mut data = data.lock().await;
-    data.health.disabled.mark_drain = false;
-    data.health.disabled.mark_hard_maint = !params.force;
-    data.health.disabled.mark_soft_maint = true;
-    data.health.disabled.mark_stopped = false;
+    data.health.markings.mark_drain = false;
+    data.health.markings.mark_hard_maint = !params.force;
+    data.health.markings.mark_soft_maint = true;
+    data.health.markings.mark_stopped = false;
 
     web::Json(data.health.clone())
 }
@@ -95,10 +95,10 @@ async fn maint(
 /// Set server as up and ready. Removed /stop, /maintenance and /drain
 async fn ready(data: web::Data<AppState>) -> web::Json<crate::Health> {
     let mut data = data.lock().await;
-    data.health.disabled.mark_drain = false;
-    data.health.disabled.mark_hard_maint = false;
-    data.health.disabled.mark_soft_maint = false;
-    data.health.disabled.mark_stopped = false;
+    data.health.markings.mark_drain = false;
+    data.health.markings.mark_hard_maint = false;
+    data.health.markings.mark_soft_maint = false;
+    data.health.markings.mark_stopped = false;
 
     web::Json(data.health.clone())
 }
